@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASKAB PSSI KEPULAUAN MENTAWAI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <style>
+        body {
+            background-color: #f4f6f9;
+        }
+        /* Custom CSS for Fixed Header and Mobile/UX */
+        .app-header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1030;
+            background-color: #0d6efd; /* Primary color */
+            color: white;
+            padding: 10px 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .app-header img {
+            height: 30px;
+            width: 30px;
+            object-fit: contain;
+        }
+        .main-content {
+            margin-top: 55px; /* Space for fixed header */
+            padding-bottom: 70px; /* Space for fixed navbar */
+            padding: 15px;
+        }
+        .app-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            z-index: 1030;
+            background-color: #ffffff; /* White background */
+            box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .app-nav .nav-link {
+            color: #495057;
+        }
+        .app-nav .nav-link.active {
+            color: #0d6efd;
+        }
+        
+        /* Toast Container Positioning (Sepertiga Atas Tengah) */
+        .toast-container {
+            position: fixed;
+            top: 15%; 
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1070;
+            max-width: 90%;
+            min-width: 250px;
+        }
+        
+        /* Confirmation Modal Positioning (Sepertiga Atas Tengah) */
+        #confirmationModal .modal-dialog {
+            position: absolute;
+            top: 30%; 
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        /* Loading Overlay (Ringan dan tidak mengganggu) */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.7);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+        .loading-overlay.show {
+            display: flex;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+
+        /* Mobile full-screen modal fix */
+        @media (max-width: 575.98px) {
+            .modal-fullscreen-sm-down .modal-dialog {
+                margin: 0;
+                width: 100%;
+                height: 100%;
+                max-width: 100%;
+            }
+            .modal-fullscreen-sm-down .modal-content {
+                height: 100%;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="confirmationModalLabel">Konfirmasi Aksi</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="confirmationModalBody">
+            Anda yakin ingin melanjutkan aksi ini?
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="button" class="btn btn-danger" id="confirmActionButton">Lanjutkan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal fade" id="crudModal" tabindex="-1" aria-labelledby="crudModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-fullscreen-sm-down modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="crudModalLabel"></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="modalFormContent"></form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-center align-items-center vh-100" id="loginPage" style="display: none;">
+        <div class="card p-4 shadow-lg w-100 m-3" style="max-width: 400px;">
+            <div class="text-center mb-4">
+                <img src="https://i.ibb.co.com/M5VpK1wG/images.png" alt="Logo PSSI" style="height: 60px;">
+                <h3 class="mt-2 text-primary">ASKAB PSSI KEPULAUAN MENTAWAI</h3>
+                <p>Sistem Informasi Manajemen Klub</p>
+            </div>
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label for="username" class="form-label"><i class="fas fa-user"></i> Username</label>
+                    <input type="text" class="form-control" id="username" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label"><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" class="form-control" id="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="appContainer" style="display: none; flex-direction: column; min-height: 100vh;">
+        
+        <div class="app-header">
+            <img src="https://i.ibb.co.com/M5VpK1wG/images.png" alt="Logo PSSI">
+            <h6 class="text-center my-0" style="flex-grow: 1;">ASKAB PSSI KEPULAUAN MENTAWAI</h6>
+            <img src="https://i.ibb.co.com/M5VpK1wG/images.png" alt="Logo ASKAB">
+        </div>
+        
+        <div class="container main-content flex-grow-1">
+            <div id="pageContent">
+                </div>
+        </div>
+
+        <nav class="app-nav">
+            <ul class="nav nav-pills nav-justified">
+                <li class="nav-item">
+                    <a class="nav-link active" data-page="home" href="#"><i class="fas fa-home d-block d-md-none"></i><span class="d-none d-md-inline">Beranda</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-page="pemain" href="#"><i class="fas fa-users d-block d-md-none"></i><span class="d-none d-md-inline">Pemain</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-page="official" href="#"><i class="fas fa-user-tie d-block d-md-none"></i><span class="d-none d-md-inline">Official</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-page="kompetisi" href="#"><i class="fas fa-trophy d-block d-md-none"></i><span class="d-none d-md-inline">Kompetisi</span></a>
+                </li>
+                <li class="nav-item" id="settingNav">
+                    <a class="nav-link" data-page="setting" href="#"><i class="fas fa-cog d-block d-md-none"></i><span class="d-none d-md-inline">Setting</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-danger" href="#" onclick="logout()"><i class="fas fa-sign-out-alt d-block d-md-none"></i><span class="d-none d-md-inline">Logout</span></a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // --- GLOBAL VARIABLES ---
+        // !!! PENTING: GANTI 'URL_APLIKASI_WEB_ANDA' DENGAN URL DEPLOYMENT APPS SCRIPT ANDA !!!
+        let GAS_URL = 'https://script.google.com/macros/s/AKfycbydIq46tVEi3abUYYFZDRb67H_YLTGreG5uoRs0ht9TbZa316m-rWPU_aIDXVaLSocd9Q/exec'; 
+        // Contoh: let GAS_URL = 'https://script.google.com/macros/s/AKfycb.../exec'; 
+        
+        let USER_SESSION = null;
+        const DEFAULT_LOGO_URL = "https://i.ibb.co.com/M5VpK1wG/images.png";
+        
+        // --- UTILITY FUNCTIONS (Unchanged from previous iteration) ---
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('show');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('show');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            container.innerHTML = ''; 
+            
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = toastHtml;
+            const toastEl = container.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+            toast.show();
+        }
+
+        function showConfirmationModal(message, callback) {
+            const modalEl = document.getElementById('confirmationModal');
+            const modal = new bootstrap.Modal(modalEl);
+            document.getElementById('confirmationModalBody').innerText = message;
+            
+            const confirmBtn = document.getElementById('confirmActionButton');
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            
+            newConfirmBtn.addEventListener('click', () => {
+                modal.hide();
+                callback();
+            });
+            
+            modal.show();
+        }
+        
+        function loadModalForm(title, formContent, formId, callback) {
+            const modalEl = document.getElementById('crudModal');
+            document.getElementById('crudModalLabel').innerText = title;
+            
+            const formContainer = document.getElementById('modalFormContent');
+            const oldFormId = formContainer.id;
+            
+            // Hapus event listener lama
+            const oldFormElement = document.getElementById(oldFormId);
+            if (oldFormElement) {
+                const newFormElement = oldFormElement.cloneNode(true);
+                oldFormElement.parentNode.replaceChild(newFormElement, oldFormElement);
+            }
+            
+            formContainer.innerHTML = formContent;
+            formContainer.id = formId; 
+            
+            const newFormElement = document.getElementById(formId);
+            if (callback) {
+                 newFormElement.addEventListener('submit', callback);
+            }
+            
+            return new bootstrap.Modal(modalEl);
+        }
+
+        // --- CORE API INTERACTION (Unchanged) ---
+        async function callGAS(action, data = {}) {
+            if (!GAS_URL || GAS_URL.includes('URL_APLIKASI_WEB_ANDA')) {
+                showToast("URL Apps Script belum diatur. Silakan ganti 'URL_APLIKASI_WEB_ANDA' di file index.html.", 'danger');
+                return { success: false, reLogin: true };
+            }
+
+            const payload = { 
+                action: action, 
+                sessionId: USER_SESSION ? USER_SESSION.sessionId : null, 
+                ...data 
+            };
+
+            showLoading();
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    cache: 'no-cache',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (result.reLogin) {
+                    showToast(result.message || "Sesi berakhir, silakan login kembali.", 'warning');
+                    if (action !== 'login' && action !== 'checkSession') { // Hindari loop tak terbatas saat login
+                         logout(); 
+                    }
+                    return result;
+                }
+                
+                return result;
+
+            } catch (error) {
+                console.error("GAS Call Error:", error);
+                showToast("Koneksi ke server gagal. " + error.message, 'danger');
+                return { success: false, message: "Koneksi gagal." };
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // --- AUTHENTICATION FLOW (Unchanged) ---
+        
+        function showLogin() {
+            document.getElementById('appContainer').style.display = 'none';
+            document.getElementById('loginPage').style.display = 'flex';
+        }
+
+        function showApp() {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'flex';
+            
+            // Tampilkan/Sembunyikan navigasi Setting
+            document.getElementById('settingNav').style.display = USER_SESSION.user_type === 'ADMIN_PUSAT' ? 'block' : 'none';
+            
+            loadPage('home'); 
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const result = await callGAS('login', { username, password });
+
+            if (result.success) {
+                USER_SESSION = {
+                    sessionId: result.sessionId,
+                    username: result.username,
+                    user_type: result.user_type,
+                    id_klub: result.id_klub
+                };
+                localStorage.setItem('userSession', JSON.stringify(USER_SESSION));
+                showToast("Login berhasil! Selamat datang, " + result.username, 'success');
+                showApp();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        });
+
+        async function logout() {
+            if (USER_SESSION) {
+                await callGAS('logout');
+            }
+            USER_SESSION = null;
+            localStorage.removeItem('userSession');
+            showToast("Anda telah logout.", 'info');
+            showLogin();
+        }
+
+        // --- DASHBOARD NAVIGATION (Unchanged) ---
+        
+        document.querySelectorAll('.app-nav .nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelectorAll('.app-nav .nav-link').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+                const page = this.getAttribute('data-page');
+                loadPage(page);
+            });
+        });
+
+        async function loadPage(page) {
+            if (page === 'setting' && USER_SESSION.user_type !== 'ADMIN_PUSAT') {
+                showToast("Akses ditolak. Halaman Pengaturan hanya untuk ADMIN_PUSAT.", 'danger');
+                document.querySelector('.app-nav .nav-link.active')?.classList.remove('active');
+                document.querySelector('.app-nav .nav-link[data-page="home"]').classList.add('active');
+                page = 'home';
+            }
+            
+            const content = document.getElementById('pageContent');
+            content.innerHTML = `<h2 class="text-center mt-5">Memuat Halaman ${page.toUpperCase()}...</h2>`;
+            
+            switch (page) {
+                case 'home':
+                    await renderHomePage();
+                    break;
+                case 'pemain':
+                    await renderPemainPage();
+                    break;
+                case 'official':
+                    await renderOfficialPage();
+                    break;
+                case 'kompetisi':
+                    await renderKompetisiPage();
+                    break;
+                case 'setting':
+                    await renderSettingPage();
+                    break;
+            }
+        }
+        
+        // --- PAGE RENDERING (HOME) ---
+        
+        async function renderHomePage() {
+            const bannerResult = await callGAS('getData', { sheetName: 'banner' });
+            const profilKlubResult = await callGAS('getData', { sheetName: 'profil_klub' });
+            
+            let bannerHtml = '';
+            if (bannerResult.success && bannerResult.data.length > 0) {
+                const urls = [bannerResult.data[0].url_banner1, bannerResult.data[0].url_banner2, bannerResult.data[0].url_banner3].filter(url => url);
+                
+                if (urls.length > 0) {
+                     bannerHtml = `
+                        <div id="bannerCarousel" class="carousel slide mb-4" data-bs-ride="carousel">
+                            <div class="carousel-indicators">
+                                ${urls.map((url, index) => `<button type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="${index}" class="${index === 0 ? 'active' : ''}" aria-current="${index === 0 ? 'true' : 'false'}" aria-label="Slide ${index + 1}"></button>`).join('')}
+                            </div>
+                            <div class="carousel-inner">
+                                ${urls.map((url, index) => `
+                                    <div class="carousel-item ${index === 0 ? 'active' : ''}" data-bs-interval="3000">
+                                        <img src="${url}" class="d-block w-100" style="height: 200px; object-fit: cover; border-radius: 8px;" alt="Banner ${index + 1}">
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            if (!bannerHtml) {
+                 bannerHtml = '<div class="alert alert-warning">Banner belum tersedia.</div>';
+            }
+            
+            let clubProfile = null;
+            if (profilKlubResult.success && profilKlubResult.data.length > 0) {
+                clubProfile = profilKlubResult.data.find(p => p.id_klub === USER_SESSION.id_klub);
+            }
+
+            const isKlubAdmin = USER_SESSION.user_type === 'ADMIN_KLUB';
+            const isAllowedToEdit = clubProfile && isKlubAdmin;
+            
+            const timestamp = clubProfile && clubProfile.time_stamp ? new Date(clubProfile.time_stamp).toLocaleString() : '';
+
+            const clubFormHtml = `
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-shield-alt"></i> Profil Klub
+                    </div>
+                    <div class="card-body">
+                        ${isAllowedToEdit && clubProfile.time_stamp ? 
+                            `<p class="text-danger small">Batas waktu edit/hapus profil adalah 1 jam dari: ${timestamp}.</p>` : ''
+                        }
+                        
+                        <form id="profilKlubForm">
+                            <input type="hidden" id="id_klub_form" value="${clubProfile ? clubProfile.id_klub : USER_SESSION.id_klub}">
+                            <input type="hidden" id="current_logo_url" value="${clubProfile ? clubProfile.logo_klub_url : ''}">
+                            
+                            <div class="mb-3">
+                                <label for="nama_klub" class="form-label">Nama Klub</label>
+                                <input type="text" class="form-control" id="nama_klub" value="${clubProfile ? clubProfile.nama_klub : ''}" ${!isKlubAdmin ? 'readonly' : ''} required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="logo_klub" class="form-label">Logo Klub (Max 500kb)</label>
+                                <input type="file" class="form-control" id="logo_klub" accept="image/*" ${!isKlubAdmin ? 'disabled' : ''}>
+                                ${clubProfile && clubProfile.logo_klub_url ? `<p class="mt-2"><img src="${clubProfile.logo_klub_url}" style="max-height: 80px;"></p>` : ''}
+                            </div>
+                            
+                            ${isKlubAdmin ? `
+                                <button type="submit" class="btn btn-success w-100" ${clubProfile && clubProfile.time_stamp && new Date().getTime() - new Date(clubProfile.time_stamp).getTime() > 3600000 ? 'disabled' : ''}>
+                                    ${clubProfile ? 'Update Profil' : 'Simpan Profil'}
+                                </button>
+                                ${clubProfile ? `<button type="button" class="btn btn-danger w-100 mt-2" ${clubProfile.time_stamp && new Date().getTime() - new Date(clubProfile.time_stamp).getTime() > 3600000 ? 'disabled' : ''} onclick="showConfirmationModal('Yakin hapus profil klub?', deleteKlubProfile)">Hapus Profil</button>` : ''}
+                            ` : `<div class="alert alert-info">Anda hanya dapat melihat profil klub.</div>`}
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('pageContent').innerHTML = bannerHtml + clubFormHtml;
+            
+            if (document.getElementById('bannerCarousel')) {
+                new bootstrap.Carousel(document.getElementById('bannerCarousel'), {
+                    interval: 3000
+                });
+            }
+
+            if (isKlubAdmin) {
+                document.getElementById('profilKlubForm').addEventListener('submit', handleProfilKlubSubmit);
+            }
+        }
+
+        async function handleProfilKlubSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const nama_klub = form.querySelector('#nama_klub').value;
+            const id_klub = form.querySelector('#id_klub_form').value;
+            const logoFile = form.querySelector('#logo_klub').files[0];
+            const currentLogoUrl = form.querySelector('#current_logo_url').value;
+
+            let logo_klub_url = currentLogoUrl;
+
+            if (logoFile) {
+                if (logoFile.size > 500 * 1024) { // Max 500kb
+                    showToast("Ukuran file logo melebihi batas 500kb.", 'danger');
+                    return;
+                }
+                
+                const base64Data = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(logoFile);
+                });
+
+                const uploadResult = await callGAS('uploadImage', { base64Data });
+                if (uploadResult.success) {
+                    logo_klub_url = uploadResult.url;
+                } else {
+                    showToast("Gagal mengunggah logo: " + uploadResult.message, 'danger');
+                    return;
+                }
+            }
+            
+            const data = { id_klub, nama_klub, logo_klub_url };
+            const action = currentLogoUrl ? 'updateData' : 'insertData';
+            const sheetName = 'profil_klub';
+
+            const result = await callGAS(action, { sheetName, data });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                renderHomePage(); // Refresh halaman home
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+
+        async function deleteKlubProfile() {
+            const id_klub = USER_SESSION.id_klub;
+            const result = await callGAS('deleteData', { sheetName: 'profil_klub', idKey: 'id_klub', idValue: id_klub });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                renderHomePage(); // Refresh halaman home
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+        
+        // --- PAGE RENDERING (PEMAIN & OFFICIAL - List View) ---
+        
+        async function renderPemainPage() {
+            const result = await callGAS('getData', { sheetName: 'pemain' });
+            
+            let contentHtml = `
+                <h4 class="mb-3">Data Pemain</h4>
+                <div class="d-flex justify-content-between mb-3">
+                    <input type="text" class="form-control me-2" id="searchPemain" placeholder="Cari Nama/ID Pemain...">
+                    ${USER_SESSION.user_type === 'ADMIN_KLUB' ? `<button class="btn btn-primary text-nowrap" id="addPemainBtn" onclick="openPemainForm()"><i class="fas fa-plus"></i> Tambah</button>` : ''}
+                </div>
+                <div id="pemainList" class="row row-cols-2 row-cols-md-3 g-3">
+            `;
+            
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(p => {
+                    const dataJson = JSON.stringify(p).replace(/"/g, '&quot;');
+                    contentHtml += `
+                        <div class="col" data-search="${p.nama_pemain.toLowerCase()} ${p.id_pemain}">
+                            <div class="card h-100 text-center shadow-sm" onclick="openPemainForm(${dataJson})">
+                                <img src="${p.photo_pemain_url || DEFAULT_LOGO_URL}" class="card-img-top" style="height: 100px; object-fit: cover;">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title mb-0">${p.nama_pemain}</h6>
+                                    <p class="card-text mb-0"><small class="text-muted">${p.no_punggung || '??'} - ${p.nama_punggung || '???'}</small></p>
+                                    <p class="card-text"><small class="badge bg-secondary">${p.posisi}</small></p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                contentHtml += `<div class="col-12"><div class="alert alert-info">Tidak ada data pemain.</div></div>`;
+            }
+
+            contentHtml += `</div>`;
+            document.getElementById('pageContent').innerHTML = contentHtml;
+            
+            document.getElementById('searchPemain').addEventListener('keyup', filterPemainOfficialList);
+        }
+        
+        async function renderOfficialPage() {
+             const result = await callGAS('getData', { sheetName: 'official' });
+             
+             let contentHtml = `
+                <h4 class="mb-3">Data Official</h4>
+                <div class="d-flex justify-content-between mb-3">
+                    <input type="text" class="form-control me-2" id="searchOfficial" placeholder="Cari Nama/ID Official...">
+                    ${USER_SESSION.user_type === 'ADMIN_KLUB' ? `<button class="btn btn-primary text-nowrap" id="addOfficialBtn" onclick="openOfficialForm()"><i class="fas fa-plus"></i> Tambah</button>` : ''}
+                </div>
+                <div id="officialList" class="row row-cols-2 row-cols-md-3 g-3">
+            `;
+            
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(o => {
+                    const dataJson = JSON.stringify(o).replace(/"/g, '&quot;');
+                    contentHtml += `
+                        <div class="col" data-search="${o.nama_official.toLowerCase()} ${o.id_official}">
+                            <div class="card h-100 text-center shadow-sm" onclick="openOfficialForm(${dataJson})">
+                                <img src="${o.photo_official_url || DEFAULT_LOGO_URL}" class="card-img-top" style="height: 100px; object-fit: cover;">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title mb-0">${o.nama_official}</h6>
+                                    <p class="card-text"><small class="badge bg-primary">${o.lisensi_pelatih || o.jabatan_official}</small></p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                contentHtml += `<div class="col-12"><div class="alert alert-info">Tidak ada data official.</div></div>`;
+            }
+
+            contentHtml += `</div>`;
+            document.getElementById('pageContent').innerHTML = contentHtml;
+            
+            document.getElementById('searchOfficial').addEventListener('keyup', filterPemainOfficialList);
+        }
+
+        function filterPemainOfficialList(e) {
+            const query = e.target.value.toLowerCase();
+            const listContainerId = e.target.id === 'searchPemain' ? 'pemainList' : 'officialList';
+            const listContainer = document.getElementById(listContainerId);
+            if (listContainer) {
+                listContainer.querySelectorAll('.col').forEach(col => {
+                    const searchData = col.getAttribute('data-search');
+                    if (searchData && searchData.includes(query)) {
+                        col.style.display = '';
+                    } else {
+                        col.style.display = 'none';
+                    }
+                });
+            }
+        }
+        
+        // --- FORM HANDLING (Pemain/Official/Kompetisi/Userlist/Banner) ---
+
+        function openPemainForm(data = {}) {
+            // Cek akses edit jika data sudah ada dan bukan ADMIN_PUSAT
+            if (data.id_pemain && USER_SESSION.user_type !== 'ADMIN_PUSAT') {
+                const oneHour = 3600000;
+                const timeStamp = new Date(data.time_stamp).getTime();
+                if (new Date().getTime() - timeStamp > oneHour) {
+                    showToast("Batas waktu 1 jam untuk mengedit/menghapus data ini telah habis.", 'danger');
+                    return;
+                }
+            }
+
+            const isEdit = !!data.id_pemain;
+            const title = isEdit ? `Edit Pemain: ${data.nama_pemain}` : 'Tambah Pemain Baru';
+            const isReadonly = !isEdit && USER_SESSION.user_type === 'ADMIN_KLUB' ? false : (USER_SESSION.user_type !== 'ADMIN_PUSAT' && isEdit && data.time_stamp && new Date().getTime() - new Date(data.time_stamp).getTime() > 3600000) || USER_SESSION.user_type !== 'ADMIN_KLUB';
+
+            const posisiOptions = ["GK", "CB", "LB", "RB", "CM", "AM", "LM", "RM", "ST", "CF", "WG"];
+            
+            let formContent = `
+                <input type="hidden" id="isEdit" value="${isEdit}">
+                <input type="hidden" id="photo_pemain_url_existing" value="${data.photo_pemain_url || ''}">
+                <div class="mb-3">
+                    <label class="form-label">ID Pemain</label>
+                    <input type="text" class="form-control" id="id_pemain" value="${data.id_pemain || ''}" ${isEdit ? 'readonly' : ''} required>
+                    ${!isEdit ? '<small class="text-muted">ID harus unik. Contoh: APM-001-P01</small>' : ''}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nama Lengkap</label>
+                    <input type="text" class="form-control" id="nama_pemain" value="${data.nama_pemain || ''}" ${isReadonly ? 'readonly' : ''} required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Posisi</label>
+                    <select class="form-select" id="posisi" ${isReadonly ? 'disabled' : ''} required>
+                        <option value="">Pilih Posisi</option>
+                        ${posisiOptions.map(p => `<option value="${p}" ${data.posisi === p ? 'selected' : ''}>${p}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tanggal Lahir</label>
+                    <input type="date" class="form-control" id="tanggal_lahir" value="${data.tanggal_lahir || ''}" ${isReadonly ? 'readonly' : ''} required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">No Punggung</label>
+                    <input type="number" class="form-control" id="no_punggung" value="${data.no_punggung || ''}" ${isReadonly ? 'readonly' : ''} min="1" max="99">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nama di Punggung (Maks 10 Karakter)</label>
+                    <input type="text" class="form-control" id="nama_punggung" value="${data.nama_punggung || ''}" maxlength="10" ${isReadonly ? 'readonly' : ''}>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Foto Pemain (Max 500kb)</label>
+                    <input type="file" class="form-control" id="photo_pemain_file" accept="image/*" ${isReadonly ? 'disabled' : ''}>
+                    ${data.photo_pemain_url ? `<img src="${data.photo_pemain_url}" class="img-fluid mt-2" style="max-height: 100px;">` : ''}
+                </div>
+                ${!isReadonly ? `
+                    <button type="submit" class="btn btn-success w-100 mt-3">${isEdit ? 'Update Data' : 'Simpan Data'}</button>
+                    ${isEdit ? `<button type="button" class="btn btn-danger w-100 mt-2" onclick="showConfirmationModal('Yakin hapus data pemain ini?', () => deletePemain('${data.id_pemain}'))">Hapus Data</button>` : ''}
+                ` : `<div class="alert alert-info mt-3">Mode Lihat/Edit Dibatasi.</div>`}
+            `;
+
+            loadModalForm(title, formContent, 'formPemain', handlePemainSubmit).show();
+        }
+
+        async function handlePemainSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const isEdit = form.querySelector('#isEdit').value === 'true';
+
+            const data = {
+                id_pemain: form.querySelector('#id_pemain').value,
+                nama_pemain: form.querySelector('#nama_pemain').value,
+                posisi: form.querySelector('#posisi').value,
+                tanggal_lahir: form.querySelector('#tanggal_lahir').value,
+                no_punggung: form.querySelector('#no_punggung').value,
+                nama_punggung: form.querySelector('#nama_punggung').value,
+                photo_pemain_url: form.querySelector('#photo_pemain_url_existing').value,
+            };
+
+            const photoFile = form.querySelector('#photo_pemain_file').files[0];
+
+            if (photoFile) {
+                 if (photoFile.size > 500 * 1024) { 
+                    showToast("Ukuran file foto melebihi batas 500kb.", 'danger');
+                    return;
+                }
+                const base64Data = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(photoFile);
+                });
+
+                const uploadResult = await callGAS('uploadImage', { base64Data });
+                if (uploadResult.success) {
+                    data.photo_pemain_url = uploadResult.url;
+                } else {
+                    showToast("Gagal mengunggah foto: " + uploadResult.message, 'danger');
+                    return;
+                }
+            }
+
+            const action = isEdit ? 'updateData' : 'insertData';
+            const result = await callGAS(action, { sheetName: 'pemain', data });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                renderPemainPage();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+
+        async function deletePemain(id_pemain) {
+            const result = await callGAS('deleteData', { sheetName: 'pemain', idKey: 'id_pemain', idValue: id_pemain });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                renderPemainPage();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+
+        function openOfficialForm(data = {}) {
+            if (data.id_official && USER_SESSION.user_type !== 'ADMIN_PUSAT') {
+                const oneHour = 3600000;
+                const timeStamp = new Date(data.time_stamp).getTime();
+                if (new Date().getTime() - timeStamp > oneHour) {
+                    showToast("Batas waktu 1 jam untuk mengedit/menghapus data ini telah habis.", 'danger');
+                    return;
+                }
+            }
+
+            const isEdit = !!data.id_official;
+            const title = isEdit ? `Edit Official: ${data.nama_official}` : 'Tambah Official Baru';
+            const isReadonly = !isEdit && USER_SESSION.user_type === 'ADMIN_KLUB' ? false : (USER_SESSION.user_type !== 'ADMIN_PUSAT' && isEdit && data.time_stamp && new Date().getTime() - new Date(data.time_stamp).getTime() > 3600000) || USER_SESSION.user_type !== 'ADMIN_KLUB';
+
+            const lisensiOptions = ["AFC Pro", "A", "B", "C", "D", "Non Lisensi"];
+            const jabatanOptions = ["Pelatih Kepala", "Asisten Pelatih", "Manajer", "Dokter Tim", "Kitman", "Lainnya"];
+            
+            let formContent = `
+                <input type="hidden" id="isEdit" value="${isEdit}">
+                <input type="hidden" id="photo_official_url_existing" value="${data.photo_official_url || ''}">
+                <div class="mb-3">
+                    <label class="form-label">ID Official</label>
+                    <input type="text" class="form-control" id="id_official" value="${data.id_official || ''}" ${isEdit ? 'readonly' : ''} required>
+                    ${!isEdit ? '<small class="text-muted">ID harus unik. Contoh: APM-001-O01</small>' : ''}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nama Lengkap</label>
+                    <input type="text" class="form-control" id="nama_official" value="${data.nama_official || ''}" ${isReadonly ? 'readonly' : ''} required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Lisensi Pelatih</label>
+                    <select class="form-select" id="lisensi_pelatih" ${isReadonly ? 'disabled' : ''} required>
+                        <option value="">Pilih Lisensi</option>
+                        ${lisensiOptions.map(l => `<option value="${l}" ${data.lisensi_pelatih === l ? 'selected' : ''}>${l}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Jabatan Official</label>
+                    <select class="form-select" id="jabatan_official" ${isReadonly ? 'disabled' : ''} required>
+                        <option value="">Pilih Jabatan</option>
+                        ${jabatanOptions.map(j => `<option value="${j}" ${data.jabatan_official === j ? 'selected' : ''}>${j}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Foto Official (Max 500kb)</label>
+                    <input type="file" class="form-control" id="photo_official_file" accept="image/*" ${isReadonly ? 'disabled' : ''}>
+                    ${data.photo_official_url ? `<img src="${data.photo_official_url}" class="img-fluid mt-2" style="max-height: 100px;">` : ''}
+                </div>
+                ${!isReadonly ? `
+                    <button type="submit" class="btn btn-success w-100 mt-3">${isEdit ? 'Update Data' : 'Simpan Data'}</button>
+                    ${isEdit ? `<button type="button" class="btn btn-danger w-100 mt-2" onclick="showConfirmationModal('Yakin hapus data official ini?', () => deleteOfficial('${data.id_official}'))">Hapus Data</button>` : ''}
+                ` : `<div class="alert alert-info mt-3">Mode Lihat/Edit Dibatasi.</div>`}
+            `;
+
+            loadModalForm(title, formContent, 'formOfficial', handleOfficialSubmit).show();
+        }
+
+        async function handleOfficialSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const isEdit = form.querySelector('#isEdit').value === 'true';
+
+            const data = {
+                id_official: form.querySelector('#id_official').value,
+                nama_official: form.querySelector('#nama_official').value,
+                lisensi_pelatih: form.querySelector('#lisensi_pelatih').value,
+                jabatan_official: form.querySelector('#jabatan_official').value,
+                photo_official_url: form.querySelector('#photo_official_url_existing').value,
+            };
+
+            const photoFile = form.querySelector('#photo_official_file').files[0];
+
+            if (photoFile) {
+                 if (photoFile.size > 500 * 1024) { 
+                    showToast("Ukuran file foto melebihi batas 500kb.", 'danger');
+                    return;
+                }
+                const base64Data = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(photoFile);
+                });
+
+                const uploadResult = await callGAS('uploadImage', { base64Data });
+                if (uploadResult.success) {
+                    data.photo_official_url = uploadResult.url;
+                } else {
+                    showToast("Gagal mengunggah foto: " + uploadResult.message, 'danger');
+                    return;
+                }
+            }
+
+            const action = isEdit ? 'updateData' : 'insertData';
+            const result = await callGAS(action, { sheetName: 'official', data });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                renderOfficialPage();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+
+        async function deleteOfficial(id_official) {
+            const result = await callGAS('deleteData', { sheetName: 'official', idKey: 'id_official', idValue: id_official });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                renderOfficialPage();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+        
+        // --- PAGE RENDERING (KOMPETISI) ---
+
+        async function renderKompetisiPage() {
+            const result = await callGAS('getData', { sheetName: 'list_kompetisi' });
+            
+            let contentHtml = '<h4 class="mb-3">Daftar Kompetisi</h4>';
+            
+            if (USER_SESSION.user_type === 'ADMIN_PUSAT') {
+                contentHtml += `<button class="btn btn-primary mb-3" onclick="openKompetisiForm()"><i class="fas fa-plus"></i> Tambah Kompetisi</button>`;
+            }
+            
+            contentHtml += `<div class="row row-cols-1 g-3">`;
+
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(k => {
+                    const dataJson = JSON.stringify(k).replace(/"/g, '&quot;');
+                    const today = new Date().getTime();
+                    const endReg = new Date(k.tanggal_akhir_pendaftaran).getTime() + (24 * 60 * 60 * 1000); // end of day
+                    const status = today > endReg ? 'Ditutup' : 'Dibuka';
+                    const statusColor = status === 'Ditutup' ? 'danger' : 'success';
+
+                    contentHtml += `
+                        <div class="col">
+                            <div class="card shadow-sm" onclick="showKompetisiDetail('${k.id_kompetisi}', ${k.umur_maksimal}, ${dataJson})">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <img src="${k.url_logo_liga || DEFAULT_LOGO_URL}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;" class="me-3">
+                                        <div style="flex-grow: 1;">
+                                            <h5 class="card-title mb-0">${k.nama_kompetisi}</h5>
+                                            <p class="card-text mb-0"><small class="text-muted">ID: ${k.id_kompetisi} | Max Usia: ${k.umur_maksimal}</small></p>
+                                            <p class="card-text"><small>Pendaftaran: ${k.tanggal_awal_pendaftaran} s/d ${k.tanggal_akhir_pendaftaran}</small></p>
+                                        </div>
+                                        <span class="badge bg-${statusColor} ms-auto">${status}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                contentHtml += `<div class="col-12"><div class="alert alert-info">Belum ada daftar kompetisi.</div></div>`;
+            }
+
+            contentHtml += `</div>`;
+            document.getElementById('pageContent').innerHTML = contentHtml;
+        }
+
+        function openKompetisiForm(data = {}) {
+            if (USER_SESSION.user_type !== 'ADMIN_PUSAT') {
+                showToast("Akses ditolak. Hanya ADMIN_PUSAT yang dapat mengelola kompetisi.", 'danger');
+                return;
+            }
+
+            const isEdit = !!data.id_kompetisi;
+            const title = isEdit ? `Edit Kompetisi: ${data.nama_kompetisi}` : 'Tambah Kompetisi Baru';
+            
+            let formContent = `
+                <input type="hidden" id="isEdit" value="${isEdit}">
+                <input type="hidden" id="id_kompetisi" value="${data.id_kompetisi || ''}">
+                <input type="hidden" id="url_logo_liga_existing" value="${data.url_logo_liga || ''}">
+
+                ${isEdit ? `<div class="mb-3"><label class="form-label">ID Kompetisi</label><input type="text" class="form-control" value="${data.id_kompetisi}" readonly></div>` : ''}
+                
+                <div class="mb-3">
+                    <label class="form-label">Nama Kompetisi</label>
+                    <input type="text" class="form-control" id="nama_kompetisi" value="${data.nama_kompetisi || ''}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Umur Maksimal Pemain (Tahun)</label>
+                    <input type="number" class="form-control" id="umur_maksimal" value="${data.umur_maksimal || ''}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tanggal Awal Pendaftaran</label>
+                    <input type="date" class="form-control" id="tanggal_awal_pendaftaran" value="${data.tanggal_awal_pendaftaran || ''}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tanggal Akhir Pendaftaran</label>
+                    <input type="date" class="form-control" id="tanggal_akhir_pendaftaran" value="${data.tanggal_akhir_pendaftaran || ''}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Logo Liga (Max 500kb)</label>
+                    <input type="file" class="form-control" id="logo_liga_file" accept="image/*">
+                    ${data.url_logo_liga ? `<img src="${data.url_logo_liga}" class="img-fluid mt-2" style="max-height: 100px;">` : ''}
+                </div>
+                
+                <button type="submit" class="btn btn-success w-100 mt-3">${isEdit ? 'Update Data' : 'Simpan Data'}</button>
+                ${isEdit ? `<button type="button" class="btn btn-danger w-100 mt-2" onclick="showConfirmationModal('Yakin hapus kompetisi ini?', () => deleteKompetisi('${data.id_kompetisi}'))">Hapus Data</button>` : ''}
+            `;
+
+            loadModalForm(title, formContent, 'formKompetisi', handleKompetisiSubmit).show();
+        }
+
+        async function handleKompetisiSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const isEdit = form.querySelector('#isEdit').value === 'true';
+
+            const data = {
+                id_kompetisi: form.querySelector('#id_kompetisi').value,
+                nama_kompetisi: form.querySelector('#nama_kompetisi').value,
+                umur_maksimal: form.querySelector('#umur_maksimal').value,
+                tanggal_awal_pendaftaran: form.querySelector('#tanggal_awal_pendaftaran').value,
+                tanggal_akhir_pendaftaran: form.querySelector('#tanggal_akhir_pendaftaran').value,
+                url_logo_liga: form.querySelector('#url_logo_liga_existing').value,
+            };
+
+            const logoFile = form.querySelector('#logo_liga_file').files[0];
+
+            if (logoFile) {
+                 if (logoFile.size > 500 * 1024) { 
+                    showToast("Ukuran file logo melebihi batas 500kb.", 'danger');
+                    return;
+                }
+                const base64Data = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(logoFile);
+                });
+
+                const uploadResult = await callGAS('uploadImage', { base64Data });
+                if (uploadResult.success) {
+                    data.url_logo_liga = uploadResult.url;
+                } else {
+                    showToast("Gagal mengunggah logo: " + uploadResult.message, 'danger');
+                    return;
+                }
+            }
+            
+            // Hapus id_kompetisi dari data jika insert
+            if (!isEdit) delete data.id_kompetisi; 
+
+            const action = isEdit ? 'updateData' : 'insertData';
+            const result = await callGAS(action, { sheetName: 'list_kompetisi', data });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                renderKompetisiPage();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+
+        async function deleteKompetisi(id_kompetisi) {
+            const result = await callGAS('deleteData', { sheetName: 'list_kompetisi', idKey: 'id_kompetisi', idValue: id_kompetisi });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                renderKompetisiPage();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+        
+        // --- PAGE RENDERING (SETTING) ---
+
+        async function renderSettingPage() {
+            if (USER_SESSION.user_type !== 'ADMIN_PUSAT') {
+                document.getElementById('pageContent').innerHTML = '<div class="alert alert-danger mt-5">Akses Ditolak.</div>';
+                return;
+            }
+
+            const bannerResult = await callGAS('getData', { sheetName: 'banner' });
+            const userlistResult = await callGAS('getData', { sheetName: 'userlist' });
+            
+            let bannerData = bannerResult.success && bannerResult.data.length > 0 ? bannerResult.data[0] : {id: '1'};
+
+            let contentHtml = `
+                <h4 class="mb-3">Pengaturan Aplikasi (ADMIN PUSAT)</h4>
+                
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-warning text-dark"><i class="fas fa-image"></i> Pengaturan Banner</div>
+                    <div class="card-body">
+                        <form id="formBanner">
+                            <input type="hidden" id="banner_id" value="${bannerData.id || ''}">
+                            <p class="text-muted small">ID Klub/ASKAB akan mengisi salah satu dari 3 URL banner ini secara berurutan.</p>
+                            
+                            <div class="mb-3">
+                                <label for="banner1_file" class="form-label">Banner 1</label>
+                                <input type="file" class="form-control" id="banner1_file" data-url-target="url_banner1" accept="image/*">
+                                ${bannerData.url_banner1 ? `<p class="mt-2"><img src="${bannerData.url_banner1}" style="max-height: 80px;"></p>` : ''}
+                            </div>
+                             <div class="mb-3">
+                                <label for="banner2_file" class="form-label">Banner 2</label>
+                                <input type="file" class="form-control" id="banner2_file" data-url-target="url_banner2" accept="image/*">
+                                ${bannerData.url_banner2 ? `<p class="mt-2"><img src="${bannerData.url_banner2}" style="max-height: 80px;"></p>` : ''}
+                            </div>
+                             <div class="mb-3">
+                                <label for="banner3_file" class="form-label">Banner 3</label>
+                                <input type="file" class="form-control" id="banner3_file" data-url-target="url_banner3" accept="image/*">
+                                ${bannerData.url_banner3 ? `<p class="mt-2"><img src="${bannerData.url_banner3}" style="max-height: 80px;"></p>` : ''}
+                            </div>
+
+                            <button type="submit" class="btn btn-warning w-100">Update Banner</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-secondary text-white"><i class="fas fa-users-cog"></i> Pengaturan Pengguna (Userlist)</div>
+                    <div class="card-body">
+                        <button class="btn btn-success btn-sm mb-3" onclick="openUserForm()"><i class="fas fa-user-plus"></i> Tambah Pengguna</button>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Nama</th>
+                                        <th>Tipe</th>
+                                        <th>ID Klub</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${userlistResult.success ? userlistResult.data.map(u => `
+                                        <tr onclick="openUserForm(${JSON.stringify(u).replace(/"/g, '&quot;')})">
+                                            <td>${u.username}</td>
+                                            <td>${u.nama_admin}</td>
+                                            <td><span class="badge bg-info">${u.type_users}</span></td>
+                                            <td>${u.id_klub}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary me-2"><i class="fas fa-edit"></i></button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); showConfirmationModal('Yakin hapus pengguna ${u.username}?', () => deleteUser('${u.username}'))"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    `).join('') : `<tr><td colspan="5">Gagal memuat data pengguna.</td></tr>`}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('pageContent').innerHTML = contentHtml;
+            document.getElementById('formBanner').addEventListener('submit', handleBannerSubmit);
+        }
+
+        async function handleBannerSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const data = { id: '1' }; 
+            
+            let uploadSuccess = true;
+            
+            // Loop melalui 3 file input banner
+            for (let i = 1; i <= 3; i++) {
+                const fileInput = form.querySelector(`#banner${i}_file`);
+                const urlTarget = fileInput.dataset.urlTarget;
+                const file = fileInput.files[0];
+                
+                if (file) {
+                    if (file.size > 500 * 1024) { 
+                        showToast(`Ukuran file Banner ${i} melebihi batas 500kb.`, 'danger');
+                        uploadSuccess = false;
+                        break;
+                    }
+
+                    const base64Data = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.readAsDataURL(file);
+                    });
+
+                    const uploadResult = await callGAS('uploadImage', { base64Data });
+                    if (uploadResult.success) {
+                        data[urlTarget] = uploadResult.url;
+                    } else {
+                        showToast(`Gagal mengunggah Banner ${i}: ` + uploadResult.message, 'danger');
+                        uploadSuccess = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (!uploadSuccess) return;
+
+            const result = await callGAS('updateData', { sheetName: 'banner', data });
+
+            if (result.success) {
+                showToast("Banner berhasil diperbarui.", 'success');
+                renderSettingPage();
+                renderHomePage(); // Refresh home page untuk melihat banner baru
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+        
+        function openUserForm(data = {}) {
+            const isEdit = !!data.username;
+            const title = isEdit ? `Edit Pengguna: ${data.username}` : 'Tambah Pengguna Baru';
+            
+            const typeOptions = ["ADMIN_PUSAT", "ADMIN_MEDIA", "ADMIN_KLUB"];
+            
+            let formContent = `
+                <input type="hidden" id="isEdit" value="${isEdit}">
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username_user" value="${data.username || ''}" ${isEdit ? 'readonly' : ''} required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password ${isEdit ? '(Kosongkan jika tidak diubah)' : ''}</label>
+                    <input type="password" class="form-control" id="password_user" value="">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nama Admin</label>
+                    <input type="text" class="form-control" id="nama_admin_user" value="${data.nama_admin || ''}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tipe Pengguna</label>
+                    <select class="form-select" id="type_users_user" required>
+                        <option value="">Pilih Tipe</option>
+                        ${typeOptions.map(t => `<option value="${t}" ${data.type_users === t ? 'selected' : ''}>${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">ID Klub (Isi 'ASKAB' jika bukan ADMIN_KLUB)</label>
+                    <input type="text" class="form-control" id="id_klub_user" value="${data.id_klub || ''}" required>
+                </div>
+                
+                <button type="submit" class="btn btn-success w-100 mt-3">${isEdit ? 'Update Pengguna' : 'Simpan Pengguna'}</button>
+                ${isEdit ? `<button type="button" class="btn btn-danger w-100 mt-2" onclick="showConfirmationModal('Yakin hapus pengguna ${data.username}?', () => deleteUser('${data.username}'))">Hapus Pengguna</button>` : ''}
+            `;
+
+            loadModalForm(title, formContent, 'formUserlist', handleUserSubmit).show();
+        }
+
+        async function handleUserSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const isEdit = form.querySelector('#isEdit').value === 'true';
+
+            const data = {
+                username: form.querySelector('#username_user').value,
+                password: form.querySelector('#password_user').value || (isEdit ? undefined : null), // Kirim undefined jika edit dan kosong
+                nama_admin: form.querySelector('#nama_admin_user').value,
+                type_users: form.querySelector('#type_users_user').value,
+                id_klub: form.querySelector('#id_klub_user').value,
+            };
+            
+            if (!isEdit && !data.password) {
+                 showToast("Password harus diisi untuk pengguna baru.", 'danger');
+                return;
+            }
+
+            const action = isEdit ? 'updateData' : 'insertData';
+            const result = await callGAS(action, { sheetName: 'userlist', data });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                renderSettingPage();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+
+        async function deleteUser(username) {
+            const result = await callGAS('deleteData', { sheetName: 'userlist', idKey: 'username', idValue: username });
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                renderSettingPage();
+            } else {
+                showToast(result.message, 'danger');
+            }
+        }
+
+        // --- SUBFORM PRAKOMPETISI (The Complex Part) ---
+        
+        async function showKompetisiDetail(idKompetisi, umurMaksimal, dataKompetisi) {
+            // Jika ADMIN_PUSAT, tampilkan form Kompetisi untuk diedit
+            if (USER_SESSION.user_type === 'ADMIN_PUSAT') {
+                return openKompetisiForm(dataKompetisi);
+            }
+
+            const today = new Date().getTime();
+            const endReg = new Date(dataKompetisi.tanggal_akhir_pendaftaran).getTime() + (24 * 60 * 60 * 1000); 
+            const isRegistrationOpen = today <= endReg;
+            
+            const detailContent = `
+                <div class="alert alert-warning small">
+                    Pendaftaran ${isRegistrationOpen ? 'terbuka' : 'ditutup'} sampai ${dataKompetisi.tanggal_akhir_pendaftaran}.
+                </div>
+                <ul class="nav nav-tabs" id="kompetisiTabs" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="pemain-tab" data-bs-toggle="tab" data-bs-target="#pemainPrakompetisi" type="button" role="tab" aria-controls="pemainPrakompetisi" aria-selected="true"><i class="fas fa-users"></i> Pemain (Max ${umurMaksimal} Th)</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="official-tab" data-bs-toggle="tab" data-bs-target="#officialPrakompetisi" type="button" role="tab" aria-controls="officialPrakompetisi" aria-selected="false"><i class="fas fa-user-tie"></i> Official</button>
+                  </li>
+                </ul>
+                <div class="tab-content pt-3" id="kompetisiTabsContent">
+                  <div class="tab-pane fade show active" id="pemainPrakompetisi" role="tabpanel" aria-labelledby="pemain-tab">
+                    <div id="formPemainPrakompetisi"></div>
+                  </div>
+                  <div class="tab-pane fade" id="officialPrakompetisi" role="tabpanel" aria-labelledby="official-tab">
+                    <div id="formOfficialPrakompetisi"></div>
+                  </div>
+                </div>
+            `;
+            
+            const modal = loadModalForm(`Pendaftaran Kompetisi: ${dataKompetisi.nama_kompetisi}`, detailContent, 'formKompetisiDetail'); 
+            modal.show();
+            
+            renderPemainPrakompetisiForm(idKompetisi, umurMaksimal, isRegistrationOpen);
+            renderOfficialPrakompetisiForm(idKompetisi, isRegistrationOpen);
+        }
+
+        async function renderPemainPrakompetisiForm(idKompetisi, umurMaksimal, isRegistrationOpen) {
+            const existingPlayersResult = await callGAS('getData', { sheetName: 'pemain_prakompetisi' });
+            const existingPlayers = existingPlayersResult.success 
+                ? existingPlayersResult.data.filter(p => p.id_kompetisi === idKompetisi && p.id_klub === USER_SESSION.id_klub)
+                : [];
+            
+            const sourcePlayersResult = await callGAS('getPemainPrakompetisiSource', { idKompetisi: idKompetisi });
+            const sourcePlayers = sourcePlayersResult.success ? sourcePlayersResult.data : [];
+            
+            const maxRows = 25;
+            // Jika data sudah ada, gunakan data yang ada untuk mengisi baris pertama
+            let allRows = existingPlayers.slice(0, maxRows);
+            // Tambahkan baris kosong hingga mencapai batas maksimal
+            while (allRows.length < maxRows) {
+                allRows.push({});
+            }
+            
+            let subformHtml = `<form id="subformPemainPrakompetisi">
+                <input type="hidden" name="id_kompetisi" value="${idKompetisi}">
+                <p class="text-info small">Pemain yang didaftarkan harus berusia **&#x2264; ${umurMaksimal} tahun** (Opsi ComboBox sudah difilter).</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%;">#</th>
+                                <th style="width: 70%;">ID Pemain / Nama</th>
+                                <th style="width: 15%;">Posisi</th>
+                                <th style="width: 10%;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pemainRowsContainer">
+                            ${allRows.map((p, index) => generatePrakompetisiRow('pemain', index, p, sourcePlayers, existingPlayers, [], isRegistrationOpen)).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${isRegistrationOpen ? 
+                    `<button type="submit" class="btn btn-success w-100 mt-3"><i class="fas fa-save"></i> Simpan Pendaftaran Pemain</button>` :
+                    `<div class="alert alert-danger mt-3">Pendaftaran Pemain Sudah Ditutup.</div>`
+                }
+            </form>`;
+
+            document.getElementById('formPemainPrakompetisi').innerHTML = subformHtml;
+            if (isRegistrationOpen) {
+                document.getElementById('subformPemainPrakompetisi').addEventListener('submit', (e) => handlePrakompetisiSubmit(e, 'pemain_prakompetisi', sourcePlayers, maxRows));
+                initializeSubformListeners('pemain', sourcePlayers); 
+            }
+        }
+
+        async function renderOfficialPrakompetisiForm(idKompetisi, isRegistrationOpen) {
+            const existingOfficialsResult = await callGAS('getData', { sheetName: 'official_prakompetisi' });
+            const existingOfficials = existingOfficialsResult.success 
+                ? existingOfficialsResult.data.filter(o => o.id_kompetisi === idKompetisi && o.id_klub === USER_SESSION.id_klub)
+                : [];
+            
+            const sourceOfficialsResult = await callGAS('getData', { sheetName: 'official' });
+            const sourceOfficials = sourceOfficialsResult.success ? sourceOfficialsResult.data.filter(o => o.id_klub === USER_SESSION.id_klub) : [];
+            
+            const maxRows = 10;
+            // Jika data sudah ada, gunakan data yang ada untuk mengisi baris pertama
+            let allRows = existingOfficials.slice(0, maxRows);
+            // Tambahkan baris kosong hingga mencapai batas maksimal
+            while (allRows.length < maxRows) {
+                allRows.push({});
+            }
+            
+            const roleOptions = ["Pelatih Kepala", "Asisten Pelatih", "Manajer", "Dokter Tim", "Kitman"];
+
+            let subformHtml = `<form id="subformOfficialPrakompetisi">
+                <input type="hidden" name="id_kompetisi" value="${idKompetisi}">
+                <p class="text-info small">Daftarkan Official Tim untuk Kompetisi ini (Max 10).</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%;">#</th>
+                                <th style="width: 70%;">ID Official / Nama / Jabatan</th>
+                                <th style="width: 15%;">Lisensi</th>
+                                <th style="width: 10%;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="officialRowsContainer">
+                            ${allRows.map((o, index) => generatePrakompetisiRow('official', index, o, sourceOfficials, existingOfficials, roleOptions, isRegistrationOpen)).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${isRegistrationOpen ? 
+                    `<button type="submit" class="btn btn-success w-100 mt-3"><i class="fas fa-save"></i> Simpan Pendaftaran Official</button>` :
+                    `<div class="alert alert-danger mt-3">Pendaftaran Official Sudah Ditutup.</div>`
+                }
+            </form>`;
+
+            document.getElementById('formOfficialPrakompetisi').innerHTML = subformHtml;
+            if (isRegistrationOpen) {
+                document.getElementById('subformOfficialPrakompetisi').addEventListener('submit', (e) => handlePrakompetisiSubmit(e, 'official_prakompetisi', sourceOfficials, maxRows));
+                initializeSubformListeners('official', sourceOfficials);
+            }
+        }
+
+        function generatePrakompetisiRow(type, index, data, sourceData, existingData, roleOptions = [], isRegistrationOpen) {
+            const idKey = type === 'pemain' ? 'id_pemain' : 'id_official';
+            const nameKey = type === 'pemain' ? 'nama_pemain' : 'nama_official';
+            const isFilled = data[idKey];
+            
+            // Opsi yang belum terpilih/terisi di baris lain
+            // Note: Caching needed for performance, but basic check is here
+            const usedIds = Array.from(document.querySelectorAll(`.select-id-subform[data-type="${type}"]:not([data-index="${index}"])`))
+                                .map(select => select.value)
+                                .filter(id => id);
+
+            // Sumber data untuk combobox (filter ID yang sudah digunakan di baris lain)
+            const availableOptions = sourceData.filter(d => !usedIds.includes(d[idKey]));
+            
+            // Tambahkan data yang sudah terpilih di baris ini ke opsi (agar tidak hilang)
+            if (isFilled && !availableOptions.find(d => d[idKey] === data[idKey])) {
+                 // Temukan data lengkap dari sourceData asli
+                 const filledData = sourceData.find(d => d[idKey] === data[idKey]);
+                 if (filledData) availableOptions.push(filledData); 
+            }
+            
+            // Sortir berdasarkan ID (opsional)
+            availableOptions.sort((a, b) => a[idKey].localeCompare(b[idKey]));
+
+            let roleInput = '';
+            if (type === 'official') {
+                roleInput = `
+                    <select class="form-select form-select-sm mt-1" name="role_official_prakompetisi" ${!isRegistrationOpen ? 'disabled' : ''}>
+                        <option value="">-- Pilih Jabatan --</option>
+                        ${roleOptions.map(r => `<option value="${r}" ${data.role_official_prakompetisi === r ? 'selected' : ''}>${r}</option>`).join('')}
+                    </select>
+                `;
+            }
+
+            return `
+                <tr id="row-${type}-${index}">
+                    <td>${index + 1}</td>
+                    <td>
+                        <select class="form-select form-select-sm select-id-subform" name="${idKey}" data-type="${type}" data-index="${index}" ${!isRegistrationOpen ? 'disabled' : ''}>
+                            <option value="">-- Pilih ${type === 'pemain' ? 'Pemain' : 'Official'} --</option>
+                            ${availableOptions.map(d => `<option value="${d[idKey]}" ${data[idKey] === d[idKey] ? 'selected' : ''}>${d[idKey]} - ${d[nameKey]}</option>`).join('')}
+                        </select>
+                        ${roleInput}
+                    </td>
+                    <td><span id="display-${type}-posisi-${index}">${isFilled ? (type === 'pemain' ? (data.posisi || '-') : (data.lisensi_pelatih || '-')) : '-'}</span></td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger remove-row-btn" onclick="clearSubformRow('${type}', ${index})" ${!isRegistrationOpen ? 'disabled' : ''}>
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function clearSubformRow(type, index) {
+            const rowEl = document.getElementById(`row-${type}-${index}`);
+            if (rowEl) {
+                const selectEl = rowEl.querySelector(`.select-id-subform[data-type="${type}"]`);
+                if (selectEl) {
+                    const oldValue = selectEl.value;
+                    selectEl.value = ''; 
+                    
+                    document.getElementById(`display-${type}-posisi-${index}`).innerText = '-';
+                    
+                    if (type === 'official') {
+                         const roleEl = rowEl.querySelector('select[name="role_official_prakompetisi"]');
+                         if (roleEl) roleEl.value = '';
+                    }
+                    
+                    // Trigger change event untuk merefresh combobox lain yang mungkin menggunakan ID yang sama
+                    document.querySelectorAll(`.select-id-subform[data-type="${type}"]:not([data-index="${index}"])`).forEach(otherSelect => {
+                         otherSelect.dispatchEvent(new Event('change'));
+                    });
+                     // Setel ulang baris ini juga
+                    selectEl.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+        
+        function initializeSubformListeners(type, sourceData) {
+            const containerId = type === 'pemain' ? 'pemainRowsContainer' : 'officialRowsContainer';
+            document.getElementById(containerId).querySelectorAll('.select-id-subform').forEach(select => {
+                // Hapus listener lama jika ada
+                select.removeEventListener('change', select._listener); 
+
+                const listener = async (e) => {
+                    await updateSubformSelectOptions(type); // Update semua select option
+                    updateSubformDisplay(e.target, type, sourceData); // Update tampilan display baris ini
+                };
+                select.addEventListener('change', listener);
+                select._listener = listener; 
+                
+                // Panggil sekali untuk mengisi data awal
+                updateSubformSelectOptions(type);
+                updateSubformDisplay(select, type, sourceData); 
+            });
+        }
+        
+        async function updateSubformSelectOptions(type) {
+            const idKey = type === 'pemain' ? 'id_pemain' : 'id_official';
+            const nameKey = type === 'pemain' ? 'nama_pemain' : 'nama_official';
+            const sheetName = type === 'pemain' ? 'pemain' : 'official';
+
+            // Ambil ID Kompetisi dari form
+            const idKompetisi = document.querySelector('input[name="id_kompetisi"]').value;
+
+            // Ambil source data yang difilter (pemain berdasarkan usia)
+            const sourceResult = type === 'pemain' 
+                ? await callGAS('getPemainPrakompetisiSource', { idKompetisi: idKompetisi })
+                : await callGAS('getData', { sheetName: sheetName });
+                
+            const sourceData = sourceResult.success ? sourceResult.data.filter(d => d.id_klub === USER_SESSION.id_klub) : [];
+
+
+            const allSelects = document.querySelectorAll(`.select-id-subform[data-type="${type}"]`);
+            
+            allSelects.forEach(currentSelect => {
+                const currentIndex = currentSelect.dataset.index;
+                const currentValue = currentSelect.value;
+                
+                // Kumpulkan ID yang sedang digunakan di baris lain
+                const usedIds = Array.from(allSelects)
+                    .filter(s => s.dataset.index !== currentIndex)
+                    .map(s => s.value)
+                    .filter(id => id);
+
+                // Filter opsi yang tersedia
+                let availableOptions = sourceData.filter(d => !usedIds.includes(d[idKey]));
+                
+                // Pastikan nilai yang sudah terpilih tetap ada di opsi, meskipun sudah digunakan (kecuali jika nilai tersebut kosong)
+                if (currentValue && !availableOptions.find(d => d[idKey] === currentValue)) {
+                     const selectedData = sourceData.find(d => d[idKey] === currentValue);
+                     if (selectedData) availableOptions.push(selectedData);
+                }
+                
+                availableOptions.sort((a, b) => a[idKey].localeCompare(b[idKey]));
+
+                let optionsHtml = `<option value="">-- Pilih ${type === 'pemain' ? 'Pemain' : 'Official'} --</option>`;
+                optionsHtml += availableOptions.map(d => 
+                    `<option value="${d[idKey]}" ${currentValue === d[idKey] ? 'selected' : ''}>${d[idKey]} - ${d[nameKey]}</option>`
+                ).join('');
+                
+                currentSelect.innerHTML = optionsHtml;
+            });
+        }
+
+        function updateSubformDisplay(selectElement, type, sourceData) {
+            const idValue = selectElement.value;
+            const index = selectElement.dataset.index;
+            const idKey = type === 'pemain' ? 'id_pemain' : 'id_official';
+            
+            const displayElement = document.getElementById(`display-${type}-posisi-${index}`);
+            
+            if (idValue) {
+                const selectedData = sourceData.find(d => d[idKey] == idValue);
+                if (selectedData) {
+                    const displayValue = type === 'pemain' ? selectedData.posisi : selectedData.lisensi_pelatih;
+                    displayElement.innerText = displayValue || 'N/A';
+                }
+            } else {
+                displayElement.innerText = '-';
+            }
+        }
+
+        async function handlePrakompetisiSubmit(e, sheetName, sourceData, maxRows) {
+            e.preventDefault();
+            const form = e.target;
+            const idKompetisi = form.querySelector('input[name="id_kompetisi"]').value;
+            const type = sheetName.replace('_prakompetisi', '');
+            const idKey = type === 'pemain' ? 'id_pemain' : 'id_official';
+
+            const allData = [];
+            const submittedIds = new Set();
+            let hasDuplicate = false;
+            let missingRole = false;
+
+            // Kumpulkan data dari semua baris
+            form.querySelectorAll('tbody tr').forEach(row => {
+                const idSelect = row.querySelector(`select[name="${idKey}"]`);
+                if (idSelect && idSelect.value) {
+                    const idValue = idSelect.value;
+                    if (submittedIds.has(idValue)) {
+                        hasDuplicate = true;
+                    }
+                    submittedIds.add(idValue);
+                    
+                    const rowData = { [idKey]: idValue };
+                    if (type === 'official') {
+                        const roleSelect = row.querySelector('select[name="role_official_prakompetisi"]');
+                        if (!roleSelect || !roleSelect.value) {
+                            missingRole = true;
+                        }
+                        rowData.role_official_prakompetisi = roleSelect ? roleSelect.value : '';
+                    }
+                    allData.push(rowData);
+                }
+            });
+
+            if (hasDuplicate) {
+                showToast("Ditemukan ID Pemain/Official ganda dalam daftar pendaftaran. Silakan perbaiki.", 'danger');
+                return;
+            }
+            if (missingRole) {
+                showToast("Jabatan Official harus diisi untuk semua data yang terdaftar.", 'danger');
+                return;
+            }
+            
+            if (allData.length > maxRows) {
+                 showToast(`Melebihi batas maksimal ${maxRows} data.`, 'danger');
+                return;
+            }
+            
+            // Konfirmasi sebelum mengirim data massal
+             showConfirmationModal(`Anda akan mendaftarkan total ${allData.length} ${type} untuk kompetisi ini. Lanjutkan?`, async () => {
+                const result = await callGAS('updatePrakompetisiData', {
+                    sheetName: sheetName,
+                    idKompetisi: idKompetisi,
+                    allData: allData
+                });
+
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('crudModal')).hide();
+                    renderKompetisiPage(); 
+                } else {
+                    showToast(result.message, 'danger');
+                }
+            });
+        }
+
+
+        // --- INITIALIZATION ---
+        
+        async function initApp() {
+            if (GAS_URL === 'URL_APLIKASI_WEB_ANDA') {
+                 showToast("Peringatan: URL Apps Script belum diatur. Silakan ganti 'URL_APLIKASI_WEB_ANDA' di kode index.html.", 'danger');
+            }
+
+            const sessionData = localStorage.getItem('userSession');
+            if (sessionData) {
+                USER_SESSION = JSON.parse(sessionData);
+                
+                const check = await callGAS('checkSession');
+                
+                if (check.success) {
+                    USER_SESSION = check;
+                    localStorage.setItem('userSession', JSON.stringify(USER_SESSION));
+                    showApp();
+                } else {
+                    logout();
+                }
+            } else {
+                showLogin();
+            }
+        }
+
+        initApp();
+    </script>
+</body>
+</html>

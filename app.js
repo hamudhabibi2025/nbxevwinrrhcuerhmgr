@@ -2,7 +2,7 @@
 // KONFIGURASI PENTING - WAJIB DIUBAH
 // GANTI URL INI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
 // =========================================================================
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx3niVSb3FRurna2zd8vrl9FVAIhHECKLhC9IFEGHz9137kOh_8hQ4swcMD7mXtSmj9mg/exec'; 
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx4MIVHgs8CmJC6dz4K3lCjPPfV3QTTCPQ0Tq1UADR6ZU3qgCfzWKjUhAsitmyflDLFTg/exec'; 
 // =========================================================================
 
 let currentUser = null;
@@ -36,7 +36,8 @@ function showToast(message, isSuccess = true) {
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
+        // Hapus header data URI ("data:image/jpeg;base64,")
+        reader.onload = () => resolve(reader.result.split(',')[1]); 
         reader.onerror = error => reject(error);
         reader.readAsDataURL(file);
     });
@@ -220,7 +221,15 @@ async function handleGenericFormSubmit(e, crudAction, fileFields, callback) {
                 uploadSuccess = false;
                 break;
             }
-            data[hiddenFieldName] = uploadResult.url; 
+            
+            let uploadedUrl = uploadResult.url;
+            
+            // ✅ PERBAIKAN DOMAIN IMGBB: Ganti domain pendek menjadi domain panjang yang berfungsi
+            if (uploadedUrl && uploadedUrl.includes('https://i.ibb.co/')) {
+                uploadedUrl = uploadedUrl.replace('https://i.ibb.co/', 'https://i.ibb.co.com/');
+            }
+
+            data[hiddenFieldName] = uploadedUrl; 
         } else if (isUpdate) {
             // Jika update dan tidak ada file baru, pertahankan URL lama
             data[hiddenFieldName] = data[hiddenFieldName] || ''; 
@@ -314,7 +323,7 @@ function renderMainLayout() {
     appContainer.innerHTML = `
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
             <div class="container-fluid">
-                <a class="navbar-brand" href="#"><i class="fas fa-futbol me-2"></i>MANAJEMEN KLUB ASKAB PSSI MENTAWAI</a>
+                <a class="navbar-brand" href="#"><i class="fas fa-futbol me-2"></i>SI Klub</a>
                 <div class="d-flex align-items-center">
                     <span class="navbar-user-info me-3">
                         Selamat Datang, **${currentUser.nama_admin || currentUser.username}** (${currentUser.type_users})
@@ -575,7 +584,7 @@ async function renderKlubForm() {
                 
                 <div class="col-12 text-center">
                     <img id="logo-preview" src="${data.logo_klub_url || 'https://via.placeholder.com/150?text=Logo+Klub'}" class="rounded shadow mb-2" style="width: 150px; height: 150px; object-fit: cover;">
-                    <input type="file" class="form-control" id="logo_klub_file" accept="image/*" onchange="previewImage(event, 'logo-preview')" ${isNew ? 'required' : ''}>
+                    <input type="file" class="form-control" id="logo_klub_file" accept="image/*" onchange="previewImage(event, 'logo-preview')" ${isNew ? '' : ''}>
                     <input type="hidden" name="logo_klub_url" value="${data.logo_klub_url || ''}">
                 </div>
 
@@ -732,7 +741,7 @@ function openPemainForm(id_pemain, data = {}) {
         
         <div class="col-12 text-center">
             <img id="photo-preview" src="${data.photo_pemain_url || 'https://via.placeholder.com/150x200?text=Foto'}" class="rounded shadow mb-2" style="width: 150px; height: 200px; object-fit: cover;">
-            <input type="file" class="form-control" id="photo_pemain_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? 'required' : ''}>
+            <input type="file" class="form-control" id="photo_pemain_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? '' : ''}>
             <input type="hidden" name="photo_pemain_url" value="${data.photo_pemain_url || ''}">
         </div>
         
@@ -893,7 +902,7 @@ function openOfficialForm(id_official, data = {}) {
         
         <div class="col-12 text-center">
             <img id="photo-preview" src="${data.photo_official_url || 'https://via.placeholder.com/150x200?text=Foto'}" class="rounded shadow mb-2" style="width: 150px; height: 200px; object-fit: cover;">
-            <input type="file" class="form-control" id="photo_official_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? 'required' : ''}>
+            <input type="file" class="form-control" id="photo_official_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? '' : ''}>
             <input type="hidden" name="photo_official_url" value="${data.photo_official_url || ''}">
         </div>
         
@@ -1077,7 +1086,9 @@ function openKompetisiForm(id_kompetisi, data = {}) {
         
         <div class="col-md-6">
             <label for="url_logo_liga" class="form-label">URL Logo Liga</label>
-            <input type="text" class="form-control" id="url_logo_liga" name="url_logo_liga" value="${data.url_logo_liga || ''}" placeholder="URL Gambar Logo">
+            <input type="text" class="form-control" id="url_logo_liga_input" name="url_logo_liga" value="${data.url_logo_liga || ''}" placeholder="URL Gambar Logo">
+             <input type="file" class="form-control mt-2" id="url_logo_liga_file" accept="image/*" onchange="previewImage(event, 'logo-liga-preview')">
+             <img id="logo-liga-preview" src="${data.url_logo_liga || 'https://via.placeholder.com/60'}" class="mt-2 rounded" style="width: 60px; height: 60px; object-fit: cover;">
         </div>
 
         <div class="col-md-6">
@@ -1103,7 +1114,8 @@ function openKompetisiForm(id_kompetisi, data = {}) {
 }
 
 async function handleKompetisiFormSubmit(e) {
-    await handleGenericFormSubmit(e, 'CRUD_LIST_KOMPETISI', [], loadKompetisiList);
+    // Tambahkan 'url_logo_liga_file' ke fileFields
+    await handleGenericFormSubmit(e, 'CRUD_LIST_KOMPETISI', ['url_logo_liga_file'], loadKompetisiList);
 }
 
 function confirmDeleteKompetisi(id_kompetisi, nama_kompetisi) {
@@ -1144,6 +1156,8 @@ async function openPrakompetisiSubforms(id_kompetisi) {
 
         <div class="tab-content border border-top-0 p-3 bg-white" id="prakompetisi-tab-content">
             <div class="tab-pane fade show active" id="pemain-subform" role="tabpanel">
+                <input type="hidden" id="idKompetisi" value="${id_kompetisi}">
+                <input type="hidden" id="idKlub" value="${currentUser.id_klub}">
                 <div class="table-responsive">
                     <table class="table table-bordered table-sm align-middle">
                         <thead><tr><th>No</th><th>ID Pemain</th><th>Nama Pemain</th><th>Posisi</th><th>Aksi</th></tr></thead>
@@ -1185,13 +1199,7 @@ async function loadPemainPrakompetisi(id_kompetisi) {
     const countSpan = document.getElementById('pemain-count');
     tbody.innerHTML = '';
 
-    if (!allValidResult.success || allValidResult.data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Tidak ada Pemain yang memenuhi batasan usia di klub Anda.</td></tr>`;
-        countSpan.textContent = '0';
-        return;
-    }
-
-    globalValidPemain = allValidResult.data.filter(p => p.id_klub === currentUser.id_klub);
+    globalValidPemain = allValidResult.success ? allValidResult.data.filter(p => p.id_klub === currentUser.id_klub) : [];
     const registeredPemain = registeredResult.data || [];
 
     if (globalValidPemain.length === 0) {
@@ -1206,7 +1214,7 @@ async function loadPemainPrakompetisi(id_kompetisi) {
     });
 
     // Jika belum ada yang terdaftar, tambahkan 1 baris kosong
-    if (registeredPemain.length === 0) {
+    if (registeredPemain.length === 0 || registeredPemain.length < 25) {
         addRowPemainPrakompetisi(id_kompetisi);
     }
     
@@ -1229,6 +1237,7 @@ function addRowPemainPrakompetisi(id_kompetisi, data = {}) {
         <option value="${p.id_pemain}" 
                 data-posisi="${p.posisi}" 
                 data-nopunggung="${p.no_punggung}"
+                data-nama="${p.nama_pemain}"
                 ${p.id_pemain === data.id_pemain ? 'selected' : ''}>
             ${p.nama_pemain} (No.${p.no_punggung})
         </option>
@@ -1258,7 +1267,6 @@ function addRowPemainPrakompetisi(id_kompetisi, data = {}) {
     updateRowNumbers(tbody);
     countSpan.textContent = tbody.querySelectorAll('tr').length;
     
-    // Trigger change if data is loaded (for info update)
     if(data.id_pemain) {
         const select = newRow.querySelector('.pemain-select');
         updatePemainInfo(select);
@@ -1270,7 +1278,7 @@ function updatePemainInfo(selectElement) {
     const row = selectElement.closest('tr');
     
     const id = selectedOption.value;
-    const nama = selectedOption.textContent.split('(')[0].trim();
+    const nama = selectedOption.dataset.nama || '';
     const posisi = selectedOption.dataset.posisi || '';
     const noPunggung = selectedOption.dataset.nopunggung || '';
 
@@ -1284,6 +1292,7 @@ function updatePemainInfo(selectElement) {
 async function savePemainPrakompetisi(id_kompetisi) {
     const tbody = document.getElementById('pemain-prakompetisi-body');
     const rows = tbody.querySelectorAll('tr');
+    const idKlub = document.getElementById('idKlub').value;
     const entries = [];
     let isValid = true;
     let selectedIds = new Set();
@@ -1294,14 +1303,16 @@ async function savePemainPrakompetisi(id_kompetisi) {
         const posisi = row.querySelector('.pemain-posisi').value;
         const no_punggung = row.querySelector('.pemain-nopunggung').value;
 
-        if (id && !selectedIds.has(id)) {
-            entries.push({ id_pemain: id, nama_pemain: nama, posisi, no_punggung });
+        // Hanya proses baris yang terisi
+        if (id) {
+            if (selectedIds.has(id)) {
+                showToast(`Duplikasi Pemain ID: ${id}. Harap hapus duplikasi.`, false);
+                isValid = false;
+                return;
+            }
+            // Urutan kunci harus sesuai dengan Apps Script crudPrakompetisi
+            entries.push({ id_kompetisi, id_klub: idKlub, id_pemain: id, nama_pemain: nama, posisi, no_punggung });
             selectedIds.add(id);
-        } else if (id && selectedIds.has(id)) {
-            showToast(`Duplikasi Pemain ID: ${id}. Harap hapus duplikasi.`, false);
-            isValid = false;
-        } else if (!id && rows.length > 1) {
-            // Abaikan baris kosong kecuali itu baris satu-satunya yang sengaja dikosongkan (DELETE ALL)
         }
     });
 
@@ -1346,7 +1357,7 @@ async function loadOfficialPrakompetisi(id_kompetisi) {
         addRowOfficialPrakompetisi(id_kompetisi, reg);
     });
 
-    if (registeredOfficial.length === 0) {
+    if (registeredOfficial.length === 0 || registeredOfficial.length < 10) {
         addRowOfficialPrakompetisi(id_kompetisi);
     }
     
@@ -1367,6 +1378,7 @@ function addRowOfficialPrakompetisi(id_kompetisi, data = {}) {
     const selectOptions = globalValidOfficial.map(o => `
         <option value="${o.id_official}" 
                 data-jabatan="${o.jabatan}" 
+                data-nama="${o.nama_official}"
                 ${o.id_official === data.id_official ? 'selected' : ''}>
             ${o.nama_official}
         </option>
@@ -1406,7 +1418,7 @@ function updateOfficialInfo(selectElement) {
     const row = selectElement.closest('tr');
     
     const id = selectedOption.value;
-    const nama = selectedOption.textContent.trim();
+    const nama = selectedOption.dataset.nama || '';
     const jabatan = selectedOption.dataset.jabatan || '';
 
     row.querySelector('.id-official-display').value = id;
@@ -1418,6 +1430,7 @@ function updateOfficialInfo(selectElement) {
 async function saveOfficialPrakompetisi(id_kompetisi) {
     const tbody = document.getElementById('official-prakompetisi-body');
     const rows = tbody.querySelectorAll('tr');
+    const idKlub = document.getElementById('idKlub').value;
     const entries = [];
     let isValid = true;
     let selectedIds = new Set();
@@ -1427,12 +1440,14 @@ async function saveOfficialPrakompetisi(id_kompetisi) {
         const nama = row.querySelector('.official-nama').value;
         const jabatan = row.querySelector('.official-jabatan').value;
 
-        if (id && !selectedIds.has(id)) {
-            entries.push({ id_official: id, nama_official: nama, jabatan });
+        if (id) {
+            if (selectedIds.has(id)) {
+                showToast(`Duplikasi Official ID: ${id}. Harap hapus duplikasi.`, false);
+                isValid = false;
+                return;
+            }
+            entries.push({ id_kompetisi, id_klub: idKlub, id_official: id, nama_official: nama, jabatan });
             selectedIds.add(id);
-        } else if (id && selectedIds.has(id)) {
-            showToast(`Duplikasi Official ID: ${id}. Harap hapus duplikasi.`, false);
-            isValid = false;
         }
     });
 

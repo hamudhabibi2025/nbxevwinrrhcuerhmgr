@@ -2,7 +2,7 @@
 // KONFIGURASI PENTING - WAJIB DIUBAH
 // GANTI URL INI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
 // =========================================================================
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzizgfmhJl-zeWEaMcTzVIpG8zxGvwM0kTVgeXXbplBWwhaqETbsCu5YTDsoiJlKRgr0w/exec'; 
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx3niVSb3FRurna2zd8vrl9FVAIhHECKLhC9IFEGHz9137kOh_8hQ4swcMD7mXtSmj9mg/exec'; 
 // =========================================================================
 
 let currentUser = null;

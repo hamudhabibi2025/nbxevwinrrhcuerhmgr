@@ -2,7 +2,7 @@
 // KONFIGURASI PENTING - WAJIB DIUBAH
 // GANTI URL INI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
 // =========================================================================
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx4MIVHgs8CmJC6dz4K3lCjPPfV3QTTCPQ0Tq1UADR6ZU3qgCfzWKjUhAsitmyflDLFTg/exec'; 
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx2X2Pah62-Pcryql77y7rrRKsyyRkPGiOZqhUouw0zH9bT3LyBxSxWnTrJAXxW03irSA/exec'; 
 // =========================================================================
 
 let currentUser = null;
@@ -207,7 +207,9 @@ async function handleGenericFormSubmit(e, crudAction, fileFields, callback) {
     let uploadSuccess = true;
     for (const fieldName of fileFields) {
         const fileInput = document.getElementById(fieldName);
-        const hiddenFieldName = fieldName.replace('_file', '');
+        
+        // Nama kolom di Sheet: Ambil bagian sebelum '_file'
+        const sheetFieldName = fieldName.replace('_file', ''); 
 
         if (fileInput && fileInput.files.length > 0) {
             const base64Data = await fileToBase64(fileInput.files[0]);
@@ -229,10 +231,11 @@ async function handleGenericFormSubmit(e, crudAction, fileFields, callback) {
                 uploadedUrl = uploadedUrl.replace('https://i.ibb.co/', 'https://i.ibb.co.com/');
             }
 
-            data[hiddenFieldName] = uploadedUrl; 
+            // Simpan URL yang sudah diperbaiki ke data yang akan dikirim ke Apps Script
+            data[sheetFieldName] = uploadedUrl; 
         } else if (isUpdate) {
-            // Jika update dan tidak ada file baru, pertahankan URL lama
-            data[hiddenFieldName] = data[hiddenFieldName] || ''; 
+            // Jika update dan tidak ada file baru, pertahankan URL lama yang ada di input hidden
+            data[sheetFieldName] = data[sheetFieldName] || ''; 
         }
     }
 
@@ -575,6 +578,7 @@ async function renderKlubForm() {
     const data = result && result.success && !Array.isArray(result.data) ? result.data : {};
     const isNew = !data.id_klub;
     
+    // Perubahan 1: Menggunakan logo_klub
     contentDiv.innerHTML = `
         <h2><i class="fas fa-building me-2"></i>${isNew ? 'Daftar' : 'Edit'} Profil Klub</h2>
         <div class="card p-3 shadow-sm">
@@ -583,9 +587,9 @@ async function renderKlubForm() {
                 <input type="hidden" name="id_klub" value="${data.id_klub || currentUser.id_klub}">
                 
                 <div class="col-12 text-center">
-                    <img id="logo-preview" src="${data.logo_klub_url || 'https://via.placeholder.com/150?text=Logo+Klub'}" class="rounded shadow mb-2" style="width: 150px; height: 150px; object-fit: cover;">
+                    <img id="logo-preview" src="${data.logo_klub || 'https://via.placeholder.com/150?text=Logo+Klub'}" class="rounded shadow mb-2" style="width: 150px; height: 150px; object-fit: cover;">
                     <input type="file" class="form-control" id="logo_klub_file" accept="image/*" onchange="previewImage(event, 'logo-preview')" ${isNew ? '' : ''}>
-                    <input type="hidden" name="logo_klub_url" value="${data.logo_klub_url || ''}">
+                    <input type="hidden" name="logo_klub" value="${data.logo_klub || ''}">
                 </div>
 
                 <div class="col-md-6">
@@ -618,6 +622,7 @@ async function renderKlubForm() {
 }
 
 async function handleProfilKlubFormSubmit(e) {
+    // Perubahan 1: Menggunakan logo_klub_file
     await handleGenericFormSubmit(e, 'CRUD_PROFIL_KLUB', ['logo_klub_file'], () => {
         renderSidebar(); 
         renderKlubForm();
@@ -661,9 +666,10 @@ async function renderAllKlubList() {
 }
 
 function showKlubDetailAdmin(id_klub, klub) {
+    // Perubahan 1: Menggunakan logo_klub
     const formHtml = `
         <div class="col-12 text-center mb-3">
-            <img src="${klub.logo_klub_url || 'https://via.placeholder.com/100x100?text=Logo'}" class="rounded shadow" style="width: 100px; height: 100px; object-fit: cover;">
+            <img src="${klub.logo_klub || 'https://via.placeholder.com/100x100?text=Logo'}" class="rounded shadow" style="width: 100px; height: 100px; object-fit: cover;">
         </div>
         <div class="col-12">
             <ul class="list-group list-group-flush">
@@ -715,11 +721,12 @@ async function loadPemainList() {
     dataPemain.forEach(pemain => {
         const isOwner = pemain.id_klub === currentUser.id_klub || currentUser.type_users === 'ADMIN_PUSAT';
         const editable = isEditable(pemain.time_stamp, currentUser.type_users);
-
+        
+        // Perubahan 2: Menggunakan pas_photo_pemain
         listDiv.innerHTML += `
             <div class="col-6 col-md-4 col-lg-3 d-flex" data-nama="${pemain.nama_pemain.toLowerCase()}" data-id="${pemain.id_pemain}">
                 <div class="card w-100 shadow-sm" onclick="showPemainDetail('${pemain.id_pemain}', ${JSON.stringify(pemain).replace(/"/g, '&quot;')}, ${isOwner}, ${editable})" style="cursor:pointer;">
-                    <img src="${pemain.photo_pemain_url || 'https://via.placeholder.com/150x200?text=Pemain'}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                    <img src="${pemain.pas_photo_pemain || 'https://via.placeholder.com/150x200?text=Pemain'}" class="card-img-top" style="height: 150px; object-fit: cover;">
                     <div class="card-body p-2">
                         <h6 class="card-title mb-0 text-truncate">${pemain.nama_pemain}</h6>
                         <small class="text-muted d-block">${pemain.posisi} | No. ${pemain.no_punggung}</small>
@@ -735,14 +742,15 @@ function openPemainForm(id_pemain, data = {}) {
     const isNew = id_pemain === 'NEW';
     const posisiOptions = ["Kiper", "Bek Kanan", "Bek Tengah", "Bek Kiri", "Gelandang kanan", "Gelandang Tengah", "Gelandang Kiri", "Penyerang"];
     
+    // Perubahan 2: Menggunakan pas_photo_pemain
     const formHtml = `
         <input type="hidden" name="action" value="${isNew ? 'CREATE' : 'UPDATE'}">
         <input type="hidden" name="id_pemain" value="${data.id_pemain || ''}">
         
         <div class="col-12 text-center">
-            <img id="photo-preview" src="${data.photo_pemain_url || 'https://via.placeholder.com/150x200?text=Foto'}" class="rounded shadow mb-2" style="width: 150px; height: 200px; object-fit: cover;">
-            <input type="file" class="form-control" id="photo_pemain_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? '' : ''}>
-            <input type="hidden" name="photo_pemain_url" value="${data.photo_pemain_url || ''}">
+            <img id="photo-preview" src="${data.pas_photo_pemain || 'https://via.placeholder.com/150x200?text=Foto'}" class="rounded shadow mb-2" style="width: 150px; height: 200px; object-fit: cover;">
+            <input type="file" class="form-control" id="pas_photo_pemain_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? '' : ''}>
+            <input type="hidden" name="pas_photo_pemain" value="${data.pas_photo_pemain || ''}">
         </div>
         
         ${isNew ? `
@@ -779,13 +787,15 @@ function openPemainForm(id_pemain, data = {}) {
 }
 
 async function handlePemainFormSubmit(e) {
-    await handleGenericFormSubmit(e, 'CRUD_PEMAIN', ['photo_pemain_file'], loadPemainList);
+    // Perubahan 2: Menggunakan pas_photo_pemain_file
+    await handleGenericFormSubmit(e, 'CRUD_PEMAIN', ['pas_photo_pemain_file'], loadPemainList);
 }
 
 function showPemainDetail(id, pemain, isOwner, editable) {
+    // Perubahan 2: Menggunakan pas_photo_pemain
     const formHtml = `
         <div class="col-12 text-center">
-            <img src="${pemain.photo_pemain_url || 'https://via.placeholder.com/150x200?text=Pemain'}" class="rounded shadow mb-3" style="width: 150px; height: 200px; object-fit: cover;">
+            <img src="${pemain.pas_photo_pemain || 'https://via.placeholder.com/150x200?text=Pemain'}" class="rounded shadow mb-3" style="width: 150px; height: 200px; object-fit: cover;">
             <h4>${pemain.nama_pemain}</h4>
             <span class="badge bg-primary">${pemain.posisi} - No. ${pemain.no_punggung}</span>
         </div>
@@ -876,11 +886,12 @@ async function loadOfficialList() {
     dataOfficial.forEach(official => {
         const isOwner = official.id_klub === currentUser.id_klub || currentUser.type_users === 'ADMIN_PUSAT';
         const editable = isEditable(official.time_stamp, currentUser.type_users);
-
+        
+        // Perubahan 3: Menggunakan pas_photo_official
         listDiv.innerHTML += `
             <div class="col-6 col-md-4 col-lg-3 d-flex" data-nama="${official.nama_official.toLowerCase()}" data-id="${official.id_official}">
                 <div class="card w-100 shadow-sm" onclick="showOfficialDetail('${official.id_official}', ${JSON.stringify(official).replace(/"/g, '&quot;')}, ${isOwner}, ${editable})" style="cursor:pointer;">
-                    <img src="${official.photo_official_url || 'https://via.placeholder.com/150x200?text=Official'}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                    <img src="${official.pas_photo_official || 'https://via.placeholder.com/150x200?text=Official'}" class="card-img-top" style="height: 150px; object-fit: cover;">
                     <div class="card-body p-2">
                         <h6 class="card-title mb-0 text-truncate">${official.nama_official}</h6>
                         <small class="text-muted d-block">${official.jabatan}</small>
@@ -896,14 +907,15 @@ function openOfficialForm(id_official, data = {}) {
     const isNew = id_official === 'NEW';
     const jabatanOptions = ["Manejer", "Asisten Manejer", "Pelatih", "Asisten Pelatih", "Pelatih Kiper", "Pelatih Fisik", "Medis", "Staff Lainnya"];
     
+    // Perubahan 3: Menggunakan pas_photo_official
     const formHtml = `
         <input type="hidden" name="action" value="${isNew ? 'CREATE' : 'UPDATE'}">
         <input type="hidden" name="id_official" value="${data.id_official || ''}">
         
         <div class="col-12 text-center">
-            <img id="photo-preview" src="${data.photo_official_url || 'https://via.placeholder.com/150x200?text=Foto'}" class="rounded shadow mb-2" style="width: 150px; height: 200px; object-fit: cover;">
-            <input type="file" class="form-control" id="photo_official_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? '' : ''}>
-            <input type="hidden" name="photo_official_url" value="${data.photo_official_url || ''}">
+            <img id="photo-preview" src="${data.pas_photo_official || 'https://via.placeholder.com/150x200?text=Foto'}" class="rounded shadow mb-2" style="width: 150px; height: 200px; object-fit: cover;">
+            <input type="file" class="form-control" id="pas_photo_official_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? '' : ''}>
+            <input type="hidden" name="pas_photo_official" value="${data.pas_photo_official || ''}">
         </div>
         
         ${isNew ? `
@@ -932,13 +944,15 @@ function openOfficialForm(id_official, data = {}) {
 }
 
 async function handleOfficialFormSubmit(e) {
-    await handleGenericFormSubmit(e, 'CRUD_OFFICIAL', ['photo_official_file'], loadOfficialList);
+    // Perubahan 3: Menggunakan pas_photo_official_file
+    await handleGenericFormSubmit(e, 'CRUD_OFFICIAL', ['pas_photo_official_file'], loadOfficialList);
 }
 
 function showOfficialDetail(id, official, isOwner, editable) {
+    // Perubahan 3: Menggunakan pas_photo_official
     const formHtml = `
         <div class="col-12 text-center">
-            <img src="${official.photo_official_url || 'https://via.placeholder.com/150x200?text=Official'}" class="rounded shadow mb-3" style="width: 150px; height: 200px; object-fit: cover;">
+            <img src="${official.pas_photo_official || 'https://via.placeholder.com/150x200?text=Official'}" class="rounded shadow mb-3" style="width: 150px; height: 200px; object-fit: cover;">
             <h4>${official.nama_official}</h4>
             <span class="badge bg-primary">${official.jabatan}</span>
         </div>
@@ -1086,7 +1100,7 @@ function openKompetisiForm(id_kompetisi, data = {}) {
         
         <div class="col-md-6">
             <label for="url_logo_liga" class="form-label">URL Logo Liga</label>
-            <input type="text" class="form-control" id="url_logo_liga_input" name="url_logo_liga" value="${data.url_logo_liga || ''}" placeholder="URL Gambar Logo">
+            <input type="text" class="form-control" id="url_logo_liga" name="url_logo_liga" value="${data.url_logo_liga || ''}" placeholder="URL Gambar Logo">
              <input type="file" class="form-control mt-2" id="url_logo_liga_file" accept="image/*" onchange="previewImage(event, 'logo-liga-preview')">
              <img id="logo-liga-preview" src="${data.url_logo_liga || 'https://via.placeholder.com/60'}" class="mt-2 rounded" style="width: 60px; height: 60px; object-fit: cover;">
         </div>
@@ -1213,8 +1227,8 @@ async function loadPemainPrakompetisi(id_kompetisi) {
         addRowPemainPrakompetisi(id_kompetisi, reg);
     });
 
-    // Jika belum ada yang terdaftar, tambahkan 1 baris kosong
-    if (registeredPemain.length === 0 || registeredPemain.length < 25) {
+    // Tambahkan baris kosong untuk entri baru (minimal 1, maksimal 25)
+    while (tbody.querySelectorAll('tr').length < 1) {
         addRowPemainPrakompetisi(id_kompetisi);
     }
     
@@ -1310,8 +1324,15 @@ async function savePemainPrakompetisi(id_kompetisi) {
                 isValid = false;
                 return;
             }
-            // Urutan kunci harus sesuai dengan Apps Script crudPrakompetisi
-            entries.push({ id_kompetisi, id_klub: idKlub, id_pemain: id, nama_pemain: nama, posisi, no_punggung });
+            // Kunci data yang sesuai dengan header sheet 'prakompetisi_pemain'
+            entries.push({ 
+                id_kompetisi, 
+                id_klub: idKlub, 
+                id_pemain: id, 
+                nama_pemain: nama, 
+                posisi, 
+                no_punggung 
+            });
             selectedIds.add(id);
         }
     });
@@ -1322,7 +1343,8 @@ async function savePemainPrakompetisi(id_kompetisi) {
         showToast("Maksimal 25 Pemain!", false);
         return;
     }
-
+    
+    // Perubahan 4: Memastikan sheet yang dituju adalah 'prakompetisi_pemain'
     const result = await callAppsScript('SAVE_PEMAIN_PRAKOMPETISI', { 
         id_kompetisi, 
         entries: JSON.stringify(entries) 
@@ -1357,7 +1379,7 @@ async function loadOfficialPrakompetisi(id_kompetisi) {
         addRowOfficialPrakompetisi(id_kompetisi, reg);
     });
 
-    if (registeredOfficial.length === 0 || registeredOfficial.length < 10) {
+    while (tbody.querySelectorAll('tr').length < 1) {
         addRowOfficialPrakompetisi(id_kompetisi);
     }
     

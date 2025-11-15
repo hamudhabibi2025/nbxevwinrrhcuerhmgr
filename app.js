@@ -329,7 +329,7 @@ function renderMainLayout() {
                 <a class="navbar-brand" href="#"><i class="fas fa-futbol me-2"></i>MANAJEMEN KLUB ASKAB PSSI KEPULAUAN MENTAWAI</a>
                 <div class="d-flex align-items-center">
                     <span class="navbar-user-info me-3">
-                        Selamat Datang, **${currentUser.nama_admin || currentUser.username}** (${currentUser.type_users})
+                        Selamat Datang, ${currentUser.nama_admin || currentUser.username} (${currentUser.type_users})
                     </span>
                     <button class="btn btn-outline-light" onclick="handleLogout()">Logout</button>
                 </div>
@@ -458,15 +458,15 @@ async function renderHome() {
                         ${profilKlub ? `
                             <h5 class="card-title">${profilKlub.nama_klub}</h5>
                             <p class="card-text">
-                                **ID Klub:** ${profilKlub.id_klub}<br>
-                                **Alamat:** ${profilKlub.alamat_klub || '-'}<br>
-                                **Nama Manajer:** ${profilKlub.nama_manajer || '-'}
+                                ID Klub: ${profilKlub.id_klub}<br>
+                                Alamat: ${profilKlub.alamat_klub || '-'}<br>
+                                Nama Manajer: ${profilKlub.nama_manajer || '-'}
                             </p>
                             <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> Profil Lengkap</span>
                             <button class="btn btn-sm btn-outline-primary float-end" onclick="renderPage('profil')">Lihat Detail</button>
                         ` : currentUser.type_users.startsWith('ADMIN_KLUB') ? `
                             <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-triangle me-2"></i> **Peringatan:** Profil Klub Anda belum terdaftar!
+                                <i class="fas fa-exclamation-triangle me-2"></i> Peringatan: Profil Klub Anda belum terdaftar!
                             </div>
                             <button class="btn btn-danger w-100" onclick="renderPage('profil')">Daftarkan Profil Klub Sekarang</button>
                         ` : `
@@ -529,14 +529,14 @@ async function loadClubNotifications() {
     
     if (pemainResult && pemainResult.success) {
         pemainResult.data.filter(p => p.id_klub === currentUser.id_klub && (now - new Date(p.time_stamp).getTime() < oneHour)).forEach(p => {
-            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Pemain **${p.nama_pemain}** baru diinput. Edit/Hapus tersedia selama 1 jam.</li>`;
+            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Pemain ${p.nama_pemain} baru diinput. Edit/Hapus tersedia selama 1 jam.</li>`;
             recentChanges++;
         });
     }
 
     if (officialResult && officialResult.success) {
         officialResult.data.filter(o => o.id_klub === currentUser.id_klub && (now - new Date(o.time_stamp).getTime() < oneHour)).forEach(o => {
-            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Official **${o.nama_official}** baru diinput. Edit/Hapus tersedia selama 1 jam.</li>`;
+            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Official ${o.nama_official} baru diinput. Edit/Hapus tersedia selama 1 jam.</li>`;
             recentChanges++;
         });
     }
@@ -546,7 +546,7 @@ async function loadClubNotifications() {
             const startDate = new Date(k.tanggal_awal_pendaftaran).getTime();
             const endDate = new Date(k.tanggal_akhir_pendaftaran).getTime();
             if (now >= startDate && now <= endDate) {
-                list.innerHTML += `<li class="list-group-item list-group-item-success"><i class="fas fa-trophy me-2"></i> Pendaftaran **${k.nama_kompetisi}** telah dibuka!</li>`;
+                list.innerHTML += `<li class="list-group-item list-group-item-success"><i class="fas fa-trophy me-2"></i> Pendaftaran ${k.nama_kompetisi} telah dibuka!</li>`;
                 recentChanges++;
             }
         });
@@ -830,7 +830,7 @@ function showPemainDetail(id, pemain, isOwner, editable) {
 }
 
 function confirmDeletePemain(id_pemain, nama_pemain) {
-    showConfirmationModal(`Apakah Anda yakin ingin menghapus data pemain **${nama_pemain}**?`, async () => {
+    showConfirmationModal(`Apakah Anda yakin ingin menghapus data pemain ${nama_pemain}?`, async () => {
         const data = { action: 'DELETE', id_pemain: id_pemain };
         const result = await callAppsScript('CRUD_PEMAIN', { data: JSON.stringify(data) });
         
@@ -987,7 +987,7 @@ function showOfficialDetail(id, official, isOwner, editable) {
 }
 
 function confirmDeleteOfficial(id_official, nama_official) {
-    showConfirmationModal(`Apakah Anda yakin ingin menghapus data official **${nama_official}**?`, async () => {
+    showConfirmationModal(`Apakah Anda yakin ingin menghapus data official ${nama_official}?`, async () => {
         const data = { action: 'DELETE', id_official: id_official };
         const result = await callAppsScript('CRUD_OFFICIAL', { data: JSON.stringify(data) });
         
@@ -1135,7 +1135,7 @@ async function handleKompetisiFormSubmit(e) {
 }
 
 function confirmDeleteKompetisi(id_kompetisi, nama_kompetisi) {
-    showConfirmationModal(`Apakah Anda yakin ingin menghapus kompetisi **${nama_kompetisi}**?`, async () => {
+    showConfirmationModal(`Apakah Anda yakin ingin menghapus kompetisi ${nama_kompetisi}?`, async () => {
         const data = { action: 'DELETE', id_kompetisi: id_kompetisi };
         const result = await callAppsScript('CRUD_LIST_KOMPETISI', { data: JSON.stringify(data) });
         
@@ -1686,7 +1686,7 @@ async function handleUserlistFormSubmit(e) {
 }
 
 function confirmDeleteUserlist(username) {
-    showConfirmationModal(`Apakah Anda yakin ingin menghapus pengguna **${username}**?`, async () => {
+    showConfirmationModal(`Apakah Anda yakin ingin menghapus pengguna ${username}?`, async () => {
         const data = { action: 'DELETE', username: username };
         const result = await callAppsScript('CRUD_USERLIST', { data: JSON.stringify(data) });
         

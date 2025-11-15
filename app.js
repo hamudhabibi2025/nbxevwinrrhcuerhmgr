@@ -281,7 +281,7 @@ function renderLoginPage() {
     appContainer.innerHTML = `
         <div id="login-page">
             <div id="login-form">
-                <h4 class="text-center mb-4 text-primary"><i class="fas fa-futbol me-2"></i>Manajemen Klub PSSI Kepulauan Mentawai</h4>
+                <h4 class="text-center mb-4 text-primary"><i class="fas fa-futbol me-2"></i>SISTEM INFORMASI KLUB ASKAB PSSI KEPULAUAN MENTAWAI</h4>
                 <form id="auth-form">
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>

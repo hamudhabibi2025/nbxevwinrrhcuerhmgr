@@ -2,7 +2,7 @@
 // KONFIGURASI PENTING - WAJIB DIUBAH
 // GANTI URL INI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
 // =========================================================================
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx2X2Pah62-Pcryql77y7rrRKsyyRkPGiOZqhUouw0zH9bT3LyBxSxWnTrJAXxW03irSA/exec'; 
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyxeNfXcDcJYamZl-Tj2hQcBPc2F7zk9M7HJy20uxqH8xiPNIoSOhDDCbCFGHNnratxag/exec'; 
 // =========================================================================
 
 let currentUser = null;
@@ -348,7 +348,7 @@ async function renderSidebar() {
     let menuHtml = `<ul class="nav flex-column mt-3">`;
 
     const clubInfo = await callAppsScript('GET_PROFIL_KLUB');
-    const isProfilExist = clubInfo && clubInfo.success && clubInfo.data && clubInfo.data.id_klub;
+    const isProfilExist = clubInfo && clubInfo.success && clubInfo.data && !Array.isArray(clubInfo.data) && clubInfo.data.id_klub;
 
     // Semua user mendapat Home & Kompetisi
     menuHtml += `<li class="nav-item"><a class="nav-link active" href="#" onclick="renderPage('home')"><i class="fas fa-home me-2"></i> Home</a></li>`;
@@ -425,6 +425,7 @@ async function loadBanners() {
     }
 
     let first = true;
+    let hasContent = false;
     for (let i = 1; i <= 3; i++) {
         const url = result.data[`url_banner${i}`];
         if (url) {
@@ -434,9 +435,10 @@ async function loadBanners() {
                 </div>
             `;
             first = false;
+            hasContent = true;
         }
     }
-     if (inner.children.length === 0) {
+     if (!hasContent) {
         inner.innerHTML = `<div class="carousel-item active"><div class="alert alert-info text-center">Tidak ada gambar banner.</div></div>`;
     }
 }
@@ -740,7 +742,7 @@ async function loadPemainList() {
 
 function openPemainForm(id_pemain, data = {}) {
     const isNew = id_pemain === 'NEW';
-    const posisiOptions = ["Kiper", "Bek Kanan", "Bek Tengah", "Bek Kiri", "Gelandang kanan", "Gelandang Tengah", "Gelandang Kiri", "Penyerang"];
+    const posisiOptions = ["Kiper", "Bek Kanan", "Bek Tengah", "Bek Kiri", "Gelandang Kanan", "Gelandang Tengah", "Gelandang Kiri", "Penyerang"];
     
     // Perubahan 2: Menggunakan pas_photo_pemain
     const formHtml = `
@@ -1216,7 +1218,7 @@ async function loadPemainPrakompetisi(id_kompetisi) {
     globalValidPemain = allValidResult.success ? allValidResult.data.filter(p => p.id_klub === currentUser.id_klub) : [];
     const registeredPemain = registeredResult.data || [];
 
-    if (globalValidPemain.length === 0) {
+    if (globalValidPemain.length === 0 && registeredPemain.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Tidak ada Pemain yang memenuhi batasan usia di klub Anda.</td></tr>`;
         countSpan.textContent = '0';
         return;
@@ -1227,8 +1229,8 @@ async function loadPemainPrakompetisi(id_kompetisi) {
         addRowPemainPrakompetisi(id_kompetisi, reg);
     });
 
-    // Tambahkan baris kosong untuk entri baru (minimal 1, maksimal 25)
-    while (tbody.querySelectorAll('tr').length < 1) {
+    // Tambahkan baris kosong untuk entri baru (jika tidak ada data terdaftar)
+    if (tbody.querySelectorAll('tr').length === 0) {
         addRowPemainPrakompetisi(id_kompetisi);
     }
     
@@ -1281,8 +1283,10 @@ function addRowPemainPrakompetisi(id_kompetisi, data = {}) {
     updateRowNumbers(tbody);
     countSpan.textContent = tbody.querySelectorAll('tr').length;
     
+    // Panggil update info jika data sudah ada (untuk row yang dimuat dari database)
     if(data.id_pemain) {
         const select = newRow.querySelector('.pemain-select');
+        // Karena kita tidak bisa memicu event change saat load, kita panggil fungsi update-nya
         updatePemainInfo(select);
     }
 }
@@ -1312,26 +1316,27 @@ async function savePemainPrakompetisi(id_kompetisi) {
     let selectedIds = new Set();
 
     rows.forEach(row => {
+        // Ambil nilai dari input hidden
         const id = row.querySelector('.pemain-id').value;
         const nama = row.querySelector('.pemain-nama').value;
         const posisi = row.querySelector('.pemain-posisi').value;
         const no_punggung = row.querySelector('.pemain-nopunggung').value;
 
-        // Hanya proses baris yang terisi
-        if (id) {
+        // Hanya proses baris yang memiliki ID dan Nama (telah dipilih dari select box)
+        if (id && nama) { 
             if (selectedIds.has(id)) {
                 showToast(`Duplikasi Pemain ID: ${id}. Harap hapus duplikasi.`, false);
                 isValid = false;
                 return;
             }
-            // Kunci data yang sesuai dengan header sheet 'prakompetisi_pemain'
+            
             entries.push({ 
                 id_kompetisi, 
                 id_klub: idKlub, 
                 id_pemain: id, 
                 nama_pemain: nama, 
                 posisi, 
-                no_punggung 
+                no_punggung // Data No. Punggung ikut terkirim
             });
             selectedIds.add(id);
         }
@@ -1344,14 +1349,21 @@ async function savePemainPrakompetisi(id_kompetisi) {
         return;
     }
     
-    // Perubahan 4: Memastikan sheet yang dituju adalah 'prakompetisi_pemain'
+    if (entries.length === 0 && rows.length > 0) {
+        showToast("Pilih minimal 1 pemain untuk disimpan.", false);
+        return;
+    }
+
     const result = await callAppsScript('SAVE_PEMAIN_PRAKOMPETISI', { 
         id_kompetisi, 
         entries: JSON.stringify(entries) 
     });
 
     if (result.success) {
+        showToast(result.message);
         loadPemainPrakompetisi(id_kompetisi);
+    } else {
+        showToast(result.message, false);
     }
 }
 
@@ -1369,7 +1381,7 @@ async function loadOfficialPrakompetisi(id_kompetisi) {
     globalValidOfficial = allOfficialResult.data.filter(o => o.id_klub === currentUser.id_klub);
     const registeredOfficial = registeredResult.data || [];
 
-    if (globalValidOfficial.length === 0) {
+    if (globalValidOfficial.length === 0 && registeredOfficial.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Tidak ada Official terdaftar di klub Anda.</td></tr>`;
         countSpan.textContent = '0';
         return;
@@ -1379,7 +1391,7 @@ async function loadOfficialPrakompetisi(id_kompetisi) {
         addRowOfficialPrakompetisi(id_kompetisi, reg);
     });
 
-    while (tbody.querySelectorAll('tr').length < 1) {
+    if (tbody.querySelectorAll('tr').length === 0) {
         addRowOfficialPrakompetisi(id_kompetisi);
     }
     
@@ -1462,7 +1474,7 @@ async function saveOfficialPrakompetisi(id_kompetisi) {
         const nama = row.querySelector('.official-nama').value;
         const jabatan = row.querySelector('.official-jabatan').value;
 
-        if (id) {
+        if (id && nama) {
             if (selectedIds.has(id)) {
                 showToast(`Duplikasi Official ID: ${id}. Harap hapus duplikasi.`, false);
                 isValid = false;
@@ -1480,13 +1492,21 @@ async function saveOfficialPrakompetisi(id_kompetisi) {
         return;
     }
 
+    if (entries.length === 0 && rows.length > 0) {
+        showToast("Pilih minimal 1 official untuk disimpan.", false);
+        return;
+    }
+
     const result = await callAppsScript('SAVE_OFFICIAL_PRAKOMPETISI', { 
         id_kompetisi, 
         entries: JSON.stringify(entries) 
     });
 
     if (result.success) {
+        showToast(result.message);
         loadOfficialPrakompetisi(id_kompetisi);
+    } else {
+        showToast(result.message, false);
     }
 }
 
@@ -1494,7 +1514,18 @@ function removeRow(button, countId) {
     const tbody = button.closest('tbody');
     button.closest('tr').remove();
     updateRowNumbers(tbody);
-    document.getElementById(countId).textContent = tbody.querySelectorAll('tr').length;
+    
+    const currentCount = tbody.querySelectorAll('tr').length;
+    document.getElementById(countId).textContent = currentCount;
+
+    // Jika semua baris dihapus, tambahkan satu baris kosong lagi (kecuali jika listnya memang kosong total)
+    if (currentCount === 0) {
+        if (countId === 'pemain-count' && globalValidPemain.length > 0) {
+            addRowPemainPrakompetisi(document.getElementById('idKompetisi').value);
+        } else if (countId === 'official-count' && globalValidOfficial.length > 0) {
+            addRowOfficialPrakompetisi(document.getElementById('idKompetisi').value);
+        }
+    }
 }
 
 function updateRowNumbers(tbody) {

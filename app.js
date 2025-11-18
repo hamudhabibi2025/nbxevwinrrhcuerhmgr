@@ -326,7 +326,7 @@ function renderMainLayout() {
     appContainer.innerHTML = `
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
             <div class="container-fluid">
-                <a class="navbar-brand" href="#"><i class="fas fa-futbol me-2"></i>Sistem Informasi PSSI Kepululauan Mentawai (SIPAKEM)</a>
+                <a class="navbar-brand" href="#"><i class="fas fa-futbol me-2"></i>Sistem Informasi PSSI Kepulauan Mentawai (SIPAKEM)</a>
                 <div class="d-flex align-items-center">
                     <span class="navbar-user-info me-3">
                         Selamat Datang, ${currentUser.nama_admin || currentUser.username} (${currentUser.type_users})

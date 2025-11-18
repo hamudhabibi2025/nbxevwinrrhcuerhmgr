@@ -529,14 +529,14 @@ async function loadClubNotifications() {
     
     if (pemainResult && pemainResult.success) {
         pemainResult.data.filter(p => p.id_klub === currentUser.id_klub && (now - new Date(p.time_stamp).getTime() < oneHour)).forEach(p => {
-            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Pemain ${p.nama_pemain} baru diinput. Edit/Hapus tersedia selama 1 jam.</li>`;
+            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Pemain ${p.nama_pemain} hanya bisa di Edit/Hapus dalam 10 hari.</li>`;
             recentChanges++;
         });
     }
 
     if (officialResult && officialResult.success) {
         officialResult.data.filter(o => o.id_klub === currentUser.id_klub && (now - new Date(o.time_stamp).getTime() < oneHour)).forEach(o => {
-            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Official ${o.nama_official} baru diinput. Edit/Hapus tersedia selama 1 jam.</li>`;
+            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Official ${o.nama_official}  hanya bisa di Edit/Hapus dalam 10 hari.</li>`;
             recentChanges++;
         });
     }

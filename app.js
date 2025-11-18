@@ -821,7 +821,7 @@ function showPemainDetail(id, pemain, isOwner, editable) {
             </div>
         `;
     } else if (isOwner && !editable) {
-        customFooter = `<div class="alert alert-warning text-center m-0">ADMIN_KLUB: Batas waktu edit/hapus (1 jam) telah berakhir.</div>`;
+        customFooter = `<div class="alert alert-warning text-center m-0">ADMIN_KLUB: Batas waktu edit/hapus (1o hari) telah berakhir.</div>`;
     } else {
          customFooter = `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>`;
     }
@@ -978,7 +978,7 @@ function showOfficialDetail(id, official, isOwner, editable) {
             </div>
         `;
     } else if (isOwner && !editable) {
-        customFooter = `<div class="alert alert-warning text-center m-0">ADMIN_KLUB: Batas waktu edit/hapus (1 jam) telah berakhir.</div>`;
+        customFooter = `<div class="alert alert-warning text-center m-0">ADMIN_KLUB: Batas waktu edit/hapus (1o hari) telah berakhir.</div>`;
     } else {
          customFooter = `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>`;
     }

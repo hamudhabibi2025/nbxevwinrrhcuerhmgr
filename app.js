@@ -66,7 +66,7 @@ function calculateAge(dateOfBirth) {
 function isEditable(timestamp, userType) {
     if (userType === 'ADMIN_PUSAT') return true;
     const timeDiff = new Date().getTime() - new Date(timestamp).getTime();
-    return timeDiff < 60 * 60 * 1000;
+    return timeDiff < 3 * 24;
 }
 
 function showModalForm(title, formHtml, onSubmitFunction, customFooterHtml = '') {

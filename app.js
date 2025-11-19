@@ -12,6 +12,54 @@ let currentPage = 'home';
 let globalValidPemain = []; 
 let globalValidOfficial = []; 
 
+// --- SESSION TIMER LOGIC ---
+let sessionTimer;
+const SESSION_DURATION_MS = 30 * 60 * 1000; // 30 menit dalam milidetik
+
+function startSessionTimer() {
+    // Hapus timer lama jika ada
+    if (sessionTimer) {
+        clearTimeout(sessionTimer);
+    }
+    showToast("Sesi Anda akan berakhir dalam 30 menit.", 'info');
+    sessionTimer = setTimeout(lockUserInterface, SESSION_DURATION_MS);
+}
+
+function lockUserInterface() {
+    const lockOverlay = document.createElement('div');
+    lockOverlay.id = 'lock-overlay';
+    lockOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 1060; /* Lebih tinggi dari loading-overlay */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        text-align: center;
+        font-size: 1.5rem;
+    `;
+    lockOverlay.innerHTML = `
+        <h3>🚫 Akses Terkunci 🚫</h3>
+        <p>Batas waktu sesi 30 menit telah berakhir.</p>
+        <p>Silakan **Refresh Halaman** untuk memulai sesi baru dan memberi giliran pengguna lain.</p>
+        <button class="btn btn-primary mt-3" onclick="window.location.reload();">Refresh Sekarang</button>
+    `;
+    
+    document.body.appendChild(lockOverlay);
+    
+    // Hapus data pengguna dari sessionStorage agar saat refresh harus login lagi
+    sessionStorage.removeItem('currentUser'); 
+    
+    showToast("Waktu sesi Anda telah berakhir. Harap refresh halaman.", 'danger');
+}
+
+
 // --- CORE UTILITIES ---
 
 function showLoading() {
@@ -63,10 +111,14 @@ function calculateAge(dateOfBirth) {
     return age;
 }
 
+// Fungsi ini tidak lagi digunakan untuk validasi backend, tapi tetap ada jika diperlukan di frontend
 function isEditable(timestamp, userType) {
+    // Backend (Code gs.txt) kini mengatur batas waktu 3 hari. 
+    // Frontend hanya perlu menunjukkan status (seperti di notifikasi)
     if (userType === 'ADMIN_PUSAT') return true;
+    // Cek 10 hari (dulu 1 jam, kini 10 hari seperti di notifikasi lama)
     const timeDiff = new Date().getTime() - new Date(timestamp).getTime();
-    return timeDiff < 60 * 60 * 1000;
+    return timeDiff < 10 * 24 * 60 * 60 * 1000;
 }
 
 function showModalForm(title, formHtml, onSubmitFunction, customFooterHtml = '') {
@@ -78,7 +130,6 @@ function showModalForm(title, formHtml, onSubmitFunction, customFooterHtml = '')
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
         <button type="submit" class="btn btn-primary" id="modalSubmitButton">Simpan</button>
     `;
-    
     const footerContent = customFooterHtml || defaultFooter;
 
     const modalHtml = `
@@ -86,29 +137,30 @@ function showModalForm(title, formHtml, onSubmitFunction, customFooterHtml = '')
             <div class="modal-dialog modal-dialog-centered modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="${modalId}Label">${title}</h5>
+                        
+<h5 class="modal-title" id="${modalId}Label">${title}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <form id="generic-form">
                         <div class="modal-body row g-3">
+  
                             ${formHtml}
                         </div>
                         <div class="modal-footer justify-content-between">
-                            ${footerContent}
+                        
+    ${footerContent}
                         </div>
                     </form>
                 </div>
             </div>
         </div>
     `;
-
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     const modalElement = document.getElementById(modalId);
     const modal = new bootstrap.Modal(modalElement);
     modal.show();
 
     modalElement.addEventListener('hidden.bs.modal', () => modalElement.remove());
-
     if (onSubmitFunction) {
         const formElement = document.getElementById('generic-form');
         if (formElement) formElement.addEventListener('submit', onSubmitFunction);
@@ -123,26 +175,27 @@ function showConfirmationModal(message, onConfirm) {
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="confirmModalLabel">Konfirmasi Aksi</h5>
+                        
+<h5 class="modal-title" id="confirmModalLabel">Konfirmasi Aksi</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         ${message}
+    
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                         <button type="button" class="btn btn-danger" id="confirmButton">Ya, Lanjutkan</button>
+      
                     </div>
                 </div>
             </div>
         </div>
     `;
-    
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     const modalElement = document.getElementById('confirmModal');
     const modal = new bootstrap.Modal(modalElement);
     modal.show();
-
     document.getElementById('confirmButton').onclick = () => {
         modal.hide();
         onConfirm();
@@ -159,7 +212,6 @@ async function callAppsScript(action, params = {}) {
         user: JSON.stringify(currentUser),
         ...params
     });
-
     showLoading();
     
     try {
@@ -167,7 +219,6 @@ async function callAppsScript(action, params = {}) {
             method: 'POST',
             body: finalParams,
         });
-
         if (!response.ok) {
             throw new Error(`HTTP Error: ${response.status}`);
         }
@@ -179,8 +230,12 @@ async function callAppsScript(action, params = {}) {
             showToast(result.message || 'Terjadi kesalahan pada server.', false);
         }
         
-        return result;
+        // Perbarui timer sesi setiap kali komunikasi berhasil
+        if (result && result.success && action !== 'CHECK_AUTH') {
+            startSessionTimer();
+        }
 
+        return result;
     } catch (error) {
         hideLoading();
         showToast(`Komunikasi Gagal: ${error.message}. Pastikan URL API sudah benar.`, false);
@@ -207,16 +262,12 @@ async function handleGenericFormSubmit(e, crudAction, fileFields, callback) {
     let uploadSuccess = true;
     for (const fieldName of fileFields) {
         const fileInput = document.getElementById(fieldName);
-        
         // Nama kolom di Sheet: Ambil bagian sebelum '_file'
-        const sheetFieldName = fieldName.replace('_file', ''); 
-
+        const sheetFieldName = fieldName.replace('_file', '');
         if (fileInput && fileInput.files.length > 0) {
             const base64Data = await fileToBase64(fileInput.files[0]);
-            
             // Panggil Apps Script untuk meneruskan Base64 ke ImgBB
             const uploadResult = await callAppsScript('UPLOAD_IMAGE', { base64Data });
-
             if (!uploadResult || !uploadResult.success) {
                 hideLoading();
                 showToast(uploadResult.message || `Gagal mengupload file untuk ${fieldName}.`, false);
@@ -225,22 +276,21 @@ async function handleGenericFormSubmit(e, crudAction, fileFields, callback) {
             }
             
             let uploadedUrl = uploadResult.url;
-            
             // ✅ PERBAIKAN DOMAIN IMGBB: Ganti domain pendek menjadi domain panjang yang berfungsi
             if (uploadedUrl && uploadedUrl.includes('https://i.ibb.co/')) {
                 uploadedUrl = uploadedUrl.replace('https://i.ibb.co/', 'https://i.ibb.co.com/');
             }
 
             // Simpan URL yang sudah diperbaiki ke data yang akan dikirim ke Apps Script
-            data[sheetFieldName] = uploadedUrl; 
+            data[sheetFieldName] = uploadedUrl;
         } else if (isUpdate) {
             // Jika update dan tidak ada file baru, pertahankan URL lama yang ada di input hidden
-            data[sheetFieldName] = data[sheetFieldName] || ''; 
+            data[sheetFieldName] = data[sheetFieldName] ||
+''; 
         }
     }
 
     if (!uploadSuccess) return;
-
     // --- 2. HAPUS FIELD ID INPUT TAMBAHAN (untuk CREATE) ---
     if (data.id_pemain_input) {
         data.id_pemain = data.id_pemain_input;
@@ -258,7 +308,7 @@ async function handleGenericFormSubmit(e, crudAction, fileFields, callback) {
     if (result && result.success) {
         if (modal) modal.hide();
         showToast(result.message);
-        callback(); 
+        callback();
     } else if (result) {
         showToast(result.message, false);
     }
@@ -270,8 +320,7 @@ async function handleGenericFormSubmit(e, crudAction, fileFields, callback) {
 function renderApp() {
     currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
     if (currentUser) {
-        renderMainLayout();
-        renderPage('home');
+        renderAppLayout(currentUser.type_users);
     } else {
         renderLoginPage();
     }
@@ -284,14 +333,17 @@ function renderLoginPage() {
                 <h4 class="text-center mb-4 text-primary"><i class="fas fa-futbol me-2"></i>Sistem Informasi PSSI Kepulauan Mentawai (SIPAKEM)</h4>
                 <form id="auth-form">
                     <div class="mb-3">
+     
                         <label for="username" class="form-label">Username</label>
                         <input type="text" class="form-control" id="username" name="username" required>
                     </div>
                     <div class="mb-3">
+         
                         <label for="password" class="form-label">Password</label>
                         <input type="password" class="form-control" id="password" name="password" required>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Login</button>
+          
                 </form>
             </div>
         </div>
@@ -306,7 +358,6 @@ async function handleLogin(e) {
     const data = Object.fromEntries(formData.entries());
 
     const result = await callAppsScript('CHECK_AUTH', data);
-    
     if (result && result.success) {
         sessionStorage.setItem('currentUser', JSON.stringify(result.user));
         currentUser = result.user;
@@ -319,101 +370,132 @@ async function handleLogin(e) {
 function handleLogout() {
     sessionStorage.removeItem('currentUser');
     currentUser = null;
+    if (sessionTimer) {
+        clearTimeout(sessionTimer);
+    }
     renderApp();
 }
 
-function renderMainLayout() {
-    appContainer.innerHTML = `
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+// --- MODIFIKASI FUNGSI INTI UNTUK TATA LETAK BARU (BOTTOM NAV) ---
+
+function renderAppLayout(userType) {
+    const user = currentUser; 
+    
+    // Header (Navbar Atas)
+    const navHtml = `
+        <nav id="main-navbar" class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
             <div class="container-fluid">
-                <a class="navbar-brand" href="#"><i class="fas fa-futbol me-2"></i>Sistem Informasi PSSI Kepulauan Mentawai (SIPAKEM)</a>
+                <a class="navbar-brand" href="#" onclick="renderPage('home');">
+                    <img id="pssi-logo" src="https://upload.wikimedia.org/wikipedia/id/thumb/7/7b/Logo_PSSI.svg/1200px-Logo_PSSI.svg.png" alt="PSSI Logo" class="pssi-logo"> 
+                    SIPAKEM
+                </a>
                 <div class="d-flex align-items-center">
-                    <span class="navbar-user-info me-3">
-                        Selamat Datang, ${currentUser.nama_admin || currentUser.username} (${currentUser.type_users})
-                    </span>
-                    <button class="btn btn-outline-light" onclick="handleLogout()">Logout</button>
+                    <span class="navbar-user-info me-2 d-none d-sm-block">${user.username} (${userType.replace('_', ' ')})</span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="handleLogout()">
+                        <i class="fas fa-sign-out-alt"></i> Keluar
+                    </button>
                 </div>
             </div>
         </nav>
-        <div id="sidebar" class="sidebar bg-dark"></div>
-        <div id="main-content" class="content"></div>
     `;
+
+    // Konten Utama
+    const contentHtml = `
+        <div id="main-content">
+            </div>
+    `;
+
+    appContainer.innerHTML = navHtml + contentHtml;
     contentDiv = document.getElementById('main-content');
-    renderSidebar();
+    
+    // Render Navigasi Bawah
+    renderBottomNav(userType);
+    renderPage(currentPage); // Memuat halaman pertama (default 'home')
+
+    // Mulai timer sesi setelah layout dimuat
+    startSessionTimer(); 
 }
 
-async function renderSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    sidebar.innerHTML = '';
-    let menuHtml = `<ul class="nav flex-column mt-3">`;
+// --- FUNGSI BARU UNTUK NAVIGASI BAWAH ---
 
-    const clubInfo = await callAppsScript('GET_PROFIL_KLUB');
-    const isProfilExist = clubInfo && clubInfo.success && clubInfo.data && !Array.isArray(clubInfo.data) && clubInfo.data.id_klub;
+function renderBottomNav(userType) {
+    const bottomNav = document.getElementById('bottom-nav');
+    if (!bottomNav) return; 
 
-    // Semua user mendapat Home & Kompetisi
-    menuHtml += `<li class="nav-item"><a class="nav-link active" href="#" onclick="renderPage('home')"><i class="fas fa-home me-2"></i> Home</a></li>`;
+    bottomNav.innerHTML = '';
+    
+    let menuItems = [];
 
-    if (currentUser.type_users.startsWith('ADMIN_KLUB')) {
-        menuHtml += `<li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('profil')"><i class="fas fa-building me-2"></i> Profil Klub</a></li>`;
-        
-        if (isProfilExist) {
-             menuHtml += `
-                 <li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('pemain')"><i class="fas fa-running me-2"></i> Pemain</a></li>
-                 <li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('official')"><i class="fas fa-chalkboard-teacher me-2"></i> Official</a></li>
-             `;
-        } else {
-             menuHtml += `
-                <li class="nav-item">
-                    <a class="nav-link disabled text-danger" title="Daftar Profil Klub terlebih dahulu">
-                        <i class="fas fa-running me-2"></i> Pemain <i class="fas fa-lock ms-1"></i>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link disabled text-danger" title="Daftar Profil Klub terlebih dahulu">
-                        <i class="fas fa-chalkboard-teacher me-2"></i> Official <i class="fas fa-lock ms-1"></i>
-                    </a>
-                </li>
-             `;
-        }
-        menuHtml += `<li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('kompetisi')"><i class="fas fa-trophy me-2"></i> Kompetisi</a></li>`;
-        
-    } else if (currentUser.type_users === 'ADMIN_PUSAT') {
-        menuHtml += `
-            <li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('profil')"><i class="fas fa-building me-2"></i> Semua Klub</a></li>
-            <li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('pemain')"><i class="fas fa-running me-2"></i> Semua Pemain</a></li>
-            <li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('official')"><i class="fas fa-chalkboard-teacher me-2"></i> Semua Official</a></li>
-            <li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('kompetisi')"><i class="fas fa-trophy me-2"></i> Kompetisi (CRUD)</a></li>
-            <li class="nav-item"><a class="nav-link" href="#" onclick="renderPage('setting')"><i class="fas fa-cog me-2"></i> Setting</a></li>
-        `;
+    // Tentukan menu berdasarkan jenis pengguna
+    if (userType === 'ADMIN_PUSAT') {
+        menuItems = [
+            { id: 'home', icon: 'fas fa-home', label: 'Home' },
+            { id: 'profil', icon: 'fas fa-building', label: 'Klub' },
+            { id: 'list_kompetisi', icon: 'fas fa-trophy', label: 'Kompetisi' },
+            // Statistik tidak ada halamannya, diganti ke Pemain untuk akses cepat
+            { id: 'pemain', icon: 'fas fa-running', label: 'Pemain' }, 
+            { id: 'setting', icon: 'fas fa-cog', label: 'Pengaturan' },
+        ];
+    } else if (userType.startsWith('ADMIN_KLUB')) {
+        menuItems = [
+            { id: 'home', icon: 'fas fa-home', label: 'Home' },
+            { id: 'profil', icon: 'fas fa-shield-alt', label: 'Klub' },
+            { id: 'pemain', icon: 'fas fa-running', label: 'Pemain' },
+            { id: 'kompetisi', icon: 'fas fa-file-signature', label: 'Registrasi' },
+            // Official dipindahkan ke menu "Klub" atau Pengaturan karena keterbatasan ruang di mobile
+            { id: 'official', icon: 'fas fa-chalkboard-teacher', label: 'Official' },
+        ];
+    } else {
+        // Fallback
+        menuItems = [
+            { id: 'home', icon: 'fas fa-home', label: 'Home' },
+            { id: 'list_kompetisi', icon: 'fas fa-trophy', label: 'Kompetisi' },
+        ];
     }
 
-    menuHtml += `</ul>`;
-    sidebar.innerHTML = menuHtml;
-
-    // Set active class
-    document.querySelectorAll('.sidebar .nav-link').forEach(link => {
-        link.classList.remove('active');
+    menuItems.forEach(item => {
+        const isActive = currentPage === item.id ? 'active' : '';
+        const itemHtml = `
+            <a href="#" class="nav-item-bottom ${isActive}" onclick="renderPage('${item.id}')">
+                <i class="${item.icon}"></i>
+                <span>${item.label}</span>
+            </a>
+        `;
+        bottomNav.innerHTML += itemHtml;
     });
-    const activeLink = document.querySelector(`.sidebar .nav-link[onclick="renderPage('${currentPage}')"]`);
-    if (activeLink) activeLink.classList.add('active');
+
+    bottomNav.style.display = 'flex'; // Tampilkan bottom nav setelah di-render
 }
 
-function renderPage(page) {
-    currentPage = page;
-    document.querySelectorAll('.sidebar .nav-link').forEach(link => link.classList.remove('active'));
-    const activeLink = document.querySelector(`.sidebar .nav-link[onclick="renderPage('${page}')"]`);
-    if (activeLink) activeLink.classList.add('active');
 
-    if (page === 'home') renderHome();
-    else if (page === 'profil') renderProfil();
-    else if (page === 'pemain') renderPemain();
-    else if (page === 'official') renderOfficial();
-    else if (page === 'kompetisi') renderKompetisi();
-    else if (page === 'setting') renderSetting();
+function renderPage(pageId, ...args) {
+    // 1. Set current page
+    currentPage = pageId;
+    if (contentDiv) contentDiv.innerHTML = '';
+    
+    // 2. Update active status in bottom nav
+    const navItems = document.querySelectorAll('#bottom-nav .nav-item-bottom');
+    navItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('onclick').includes(`'${pageId}'`)) {
+            item.classList.add('active');
+        }
+    });
+
+    // 3. Render content
+    if (pageId === 'home') renderHome();
+    else if (pageId === 'profil') renderProfil();
+    else if (pageId === 'pemain') renderPemain();
+    else if (pageId === 'official') renderOfficial();
+    else if (pageId === 'kompetisi' || pageId === 'list_kompetisi') renderKompetisi();
+    else if (pageId === 'setting') renderSetting();
+    else if (pageId === 'prakompetisi') renderPrakompetisi(args[0]);
     else contentDiv.innerHTML = `<h2>Halaman Tidak Ditemukan</h2>`;
 }
 
 // --- NAVIGASI HOME ---
+// ... (loadBanners, renderHome, loadClubNotifications, loadAdminPusatNotifications)
+
 async function loadBanners() {
     const result = await callAppsScript('GET_BANNERS');
     const inner = document.getElementById('banner-inner');
@@ -431,7 +513,8 @@ async function loadBanners() {
         if (url) {
             inner.innerHTML += `
                 <div class="carousel-item ${first ? 'active' : ''}">
-                    <img src="${url}" class="d-block w-100 rounded" style="height: 250px; object-fit: cover;" alt="Banner ${i}">
+                    <img src="${url}" class="d-block w-100 rounded" style="height: 250px; object-fit: cover;"
+alt="Banner ${i}">
                 </div>
             `;
             first = false;
@@ -446,7 +529,6 @@ async function loadBanners() {
 async function renderHome() {
     const clubInfo = await callAppsScript('GET_PROFIL_KLUB');
     const profilKlub = clubInfo && clubInfo.success && !Array.isArray(clubInfo.data) ? clubInfo.data : null;
-
     contentDiv.innerHTML = `
         <h2><i class="fas fa-home me-2"></i>Dashboard Klub</h2>
         <div id="home-alerts"></div>
@@ -454,38 +536,49 @@ async function renderHome() {
             <div class="col-lg-6">
                 <div class="card shadow-sm h-100">
                     <div class="card-header bg-primary text-white"><i class="fas fa-shield-alt me-2"></i>Status Profil Klub</div>
+      
                     <div class="card-body" id="club-status-card">
-                        ${profilKlub ? `
+                        ${profilKlub ?
+`
                             <h5 class="card-title">${profilKlub.nama_klub}</h5>
                             <p class="card-text">
                                 ID Klub: ${profilKlub.id_klub}<br>
-                                Alamat: ${profilKlub.alamat_klub || '-'}<br>
-                                Nama Manajer: ${profilKlub.nama_manajer || '-'}
+        
+                                Alamat: ${profilKlub.alamat_klub ||
+'-'}<br>
+                                Nama Manajer: ${profilKlub.nama_manajer ||
+'-'}
                             </p>
                             <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> Profil Lengkap</span>
                             <button class="btn btn-sm btn-outline-primary float-end" onclick="renderPage('profil')">Lihat Detail</button>
-                        ` : currentUser.type_users.startsWith('ADMIN_KLUB') ? `
+   
+                         ` : currentUser.type_users.startsWith('ADMIN_KLUB') ?
+`
                             <div class="alert alert-danger">
                                 <i class="fas fa-exclamation-triangle me-2"></i> Peringatan: Profil Klub Anda belum terdaftar!
-                            </div>
+</div>
                             <button class="btn btn-danger w-100" onclick="renderPage('profil')">Daftarkan Profil Klub Sekarang</button>
                         ` : `
                             <div class="alert alert-info">
-                                <i class="fas fa-info-circle me-2"></i> Admin Pusat memiliki akses penuh ke semua data klub.
-                            </div>
+         
+                               <i class="fas fa-info-circle me-2"></i> Admin Pusat memiliki akses penuh ke semua data klub.
+</div>
                             <button class="btn btn-primary w-100" onclick="renderPage('profil')">Lihat Semua Klub</button>
                         `}
                     </div>
                 </div>
+      
             </div>
             <div class="col-lg-6">
                 <div class="card shadow-sm h-100">
                     <div class="card-header bg-info text-dark"><i class="fas fa-bell me-2"></i>Pembaruan & Notifikasi</div>
                     <div class="card-body" id="notification-card">
+            
                         <ul class="list-group list-group-flush" id="notification-list">
                             <li class="list-group-item text-muted">Memuat notifikasi...</li>
                         </ul>
                     </div>
+          
                 </div>
             </div>
         </div>
@@ -493,17 +586,20 @@ async function renderHome() {
             <h4><i class="fas fa-images me-2"></i>Info Terbaru</h4>
             <div id="banner-carousel" class="carousel slide" data-bs-ride="carousel">
                 <div class="carousel-inner" id="banner-inner">
-                    <p class="text-center p-5"><i class="fas fa-spinner fa-spin me-2"></i>Memuat banner...</p>
+               
+                     <p class="text-center p-5"><i class="fas fa-spinner fa-spin me-2"></i>Memuat banner...</p>
                 </div>
                 <button class="carousel-control-prev" type="button" data-bs-target="#banner-carousel" data-bs-slide="prev">
                     <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                     <span class="visually-hidden">Previous</span>
+         
                 </button>
                 <button class="carousel-control-next" type="button" data-bs-target="#banner-carousel" data-bs-slide="next">
                     <span class="carousel-control-next-icon" aria-hidden="true"></span>
                     <span class="visually-hidden">Next</span>
                 </button>
             </div>
+  
         </div>
     `;
     
@@ -526,17 +622,19 @@ async function loadClubNotifications() {
     const oneHour = 60 * 60 * 1000;
     
     let recentChanges = 0;
-    
     if (pemainResult && pemainResult.success) {
-        pemainResult.data.filter(p => p.id_klub === currentUser.id_klub && (now - new Date(p.time_stamp).getTime() < oneHour)).forEach(p => {
-            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Pemain ${p.nama_pemain} hanya bisa di Edit/Hapus dalam 10 hari.</li>`;
+        // Notifikasi untuk batas waktu 3 hari (72 jam)
+        const lockTime = 3 * 24 * 60 * 60 * 1000;
+        pemainResult.data.filter(p => p.id_klub === currentUser.id_klub && (now - new Date(p.time_stamp).getTime() < lockTime)).forEach(p => {
+             list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Pemain ${p.nama_pemain} hanya bisa di Edit/Hapus dalam **3 hari** dari waktu terakhir diubah.</li>`;
             recentChanges++;
         });
     }
 
     if (officialResult && officialResult.success) {
-        officialResult.data.filter(o => o.id_klub === currentUser.id_klub && (now - new Date(o.time_stamp).getTime() < oneHour)).forEach(o => {
-            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Official ${o.nama_official}  hanya bisa di Edit/Hapus dalam 10 hari.</li>`;
+        const lockTime = 3 * 24 * 60 * 60 * 1000;
+        officialResult.data.filter(o => o.id_klub === currentUser.id_klub && (now - new Date(o.time_stamp).getTime() < lockTime)).forEach(o => {
+            list.innerHTML += `<li class="list-group-item list-group-item-warning"><i class="fas fa-edit me-2"></i> Official ${o.nama_official} hanya bisa di Edit/Hapus dalam **3 hari** dari waktu terakhir diubah.</li>`;
             recentChanges++;
         });
     }
@@ -547,13 +645,15 @@ async function loadClubNotifications() {
             const endDate = new Date(k.tanggal_akhir_pendaftaran).getTime();
             if (now >= startDate && now <= endDate) {
                 list.innerHTML += `<li class="list-group-item list-group-item-success"><i class="fas fa-trophy me-2"></i> Pendaftaran ${k.nama_kompetisi} telah dibuka!</li>`;
+   
                 recentChanges++;
             }
         });
     }
 
     if (recentChanges === 0) {
-        list.innerHTML = `<li class="list-group-item text-success"><i class="fas fa-check me-2"></i> Semua data Anda stabil. Tidak ada pembaruan mendesak.</li>`;
+        list.innerHTML = `<li class="list-group-item text-success"><i class="fas fa-check me-2"></i> Semua data Anda stabil.
+Tidak ada pembaruan mendesak.</li>`;
     }
 }
 
@@ -576,293 +676,373 @@ async function renderProfil() {
 }
 
 async function renderKlubForm() {
-    const result = await callAppsScript('GET_PROFIL_KLUB');
-    const data = result && result.success && !Array.isArray(result.data) ? result.data : {};
-    const isNew = !data.id_klub;
-    
-    // Perubahan 1: Menggunakan logo_klub
-    contentDiv.innerHTML = `
-        <h2><i class="fas fa-building me-2"></i>${isNew ? 'Daftar' : 'Edit'} Profil Klub</h2>
-        <div class="card p-3 shadow-sm">
-            <form id="profil-klub-form" class="row g-3">
-                <input type="hidden" name="action" value="${isNew ? 'CREATE' : 'UPDATE'}">
-                <input type="hidden" name="id_klub" value="${data.id_klub || currentUser.id_klub}">
-                
-                <div class="col-12 text-center">
-                    <img id="logo-preview" src="${data.logo_klub || 'https://via.placeholder.com/150?text=Logo+Klub'}" class="rounded shadow mb-2" style="width: 150px; height: 150px; object-fit: cover;">
-                    <input type="file" class="form-control" id="logo_klub_file" accept="image/*" onchange="previewImage(event, 'logo-preview')" ${isNew ? '' : ''}>
-                    <input type="hidden" name="logo_klub" value="${data.logo_klub || ''}">
-                </div>
+    const isNew = !currentUser.id_klub;
+    let klubData = {};
+    if (!isNew) {
+        const result = await callAppsScript('GET_PROFIL_KLUB');
+        if (result.success) {
+            klubData = result.data;
+        }
+    }
 
-                <div class="col-md-6">
-                    <label for="id_klub_display" class="form-label">ID Klub</label>
-                    <input type="text" class="form-control" id="id_klub_display" value="${currentUser.id_klub}" readonly>
-                </div>
-                <div class="col-md-6">
-                    <label for="nama_klub" class="form-label">Nama Klub</label>
-                    <input type="text" class="form-control" id="nama_klub" name="nama_klub" value="${data.nama_klub || ''}" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="nama_manajer" class="form-label">Nama Manajer</label>
-                    <input type="text" class="form-control" id="nama_manajer" name="nama_manajer" value="${data.nama_manajer || ''}" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="no_telp_klub" class="form-label">No. Telepon Klub</label>
-                    <input type="text" class="form-control" id="no_telp_klub" name="no_telp_klub" value="${data.no_telp_klub || ''}">
-                </div>
-                <div class="col-12">
-                    <label for="alamat_klub" class="form-label">Alamat Klub</label>
-                    <textarea class="form-control" id="alamat_klub" name="alamat_klub">${data.alamat_klub || ''}</textarea>
-                </div>
-                <div class="col-12 d-grid">
-                    <button type="submit" class="btn btn-primary">${isNew ? 'Daftar Klub' : 'Simpan Perubahan'}</button>
-                </div>
-            </form>
+    contentDiv.innerHTML = `
+        <h2><i class="fas fa-shield-alt me-2"></i>${isNew ? 'Daftar' : 'Edit'} Profil Klub</h2>
+        <div class="card shadow-sm mt-3">
+            <div class="card-body">
+                <form id="profil-klub-form">
+                    <input type="hidden" name="action" value="${isNew ? 'CREATE' : 'UPDATE'}">
+                    <input type="hidden" name="id_klub" value="${klubData.id_klub || currentUser.id_klub}">
+                    <input type="hidden" name="logo_klub" id="logo_klub" value="${klubData.logo_klub || ''}">
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="nama_klub" class="form-label">Nama Klub</label>
+                            <input type="text" class="form-control" id="nama_klub" name="nama_klub" value="${klubData.nama_klub || ''}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="nama_manajer" class="form-label">Nama Manajer</label>
+                            <input type="text" class="form-control" id="nama_manajer" name="nama_manajer" value="${klubData.nama_manajer || ''}" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="alamat_klub" class="form-label">Alamat Klub</label>
+                            <textarea class="form-control" id="alamat_klub" name="alamat_klub">${klubData.alamat_klub || ''}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="tahun_berdiri" class="form-label">Tahun Berdiri</label>
+                            <input type="number" class="form-control" id="tahun_berdiri" name="tahun_berdiri" value="${klubData.tahun_berdiri || ''}" max="${new Date().getFullYear()}" placeholder="Contoh: 2000">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="logo_klub_file" class="form-label">Logo Klub</label>
+                            <input type="file" class="form-control" id="logo_klub_file" name="logo_klub_file" accept="image/*" onchange="previewImage(event, 'logo-preview')" ${isNew ? 'required' : ''}>
+                        </div>
+                        <div class="col-12 text-center">
+                            <img id="logo-preview" src="${klubData.logo_klub || 'https://via.placeholder.com/150?text=Logo+Klub'}" alt="Preview Logo" style="max-width: 150px; max-height: 150px; border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save me-2"></i>Simpan Profil</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
     `;
-    document.getElementById('profil-klub-form').addEventListener('submit', handleProfilKlubFormSubmit);
+    document.getElementById('profil-klub-form').addEventListener('submit', (e) => 
+        handleGenericFormSubmit(e, 'CRUD_PROFIL_KLUB', ['logo_klub_file'], renderKlubForm)
+    );
 }
 
-async function handleProfilKlubFormSubmit(e) {
-    // Perubahan 1: Menggunakan logo_klub_file
-    await handleGenericFormSubmit(e, 'CRUD_PROFIL_KLUB', ['logo_klub_file'], () => {
-        renderSidebar(); 
-        renderKlubForm();
-    });
-}
-
-// ADMIN PUSAT: Melihat Semua Klub
 async function renderAllKlubList() {
     contentDiv.innerHTML = `
         <h2><i class="fas fa-building me-2"></i>Daftar Semua Profil Klub</h2>
-        <div id="klub-list" class="row g-3">
-            <p class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Memuat data klub...</p>
+        <div class="table-responsive mt-3">
+            <table class="table table-striped table-hover" id="klub-list-table">
+                <thead class="bg-dark text-white">
+                    <tr>
+                        <th>Logo</th>
+                        <th>Nama Klub</th>
+                        <th>ID Klub</th>
+                        <th>Manajer</th>
+                        <th>Tahun Berdiri</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>
+                </tbody>
+            </table>
         </div>
     `;
-    
     const result = await callAppsScript('GET_PROFIL_KLUB');
-    const listDiv = document.getElementById('klub-list');
-    listDiv.innerHTML = '';
-    
-    if (!result || !result.success || result.data.length === 0) {
-        listDiv.innerHTML = `<div class="col-12"><div class="alert alert-info text-center">Tidak ada profil klub yang terdaftar.</div></div>`;
+    const tbody = document.querySelector('#klub-list-table tbody');
+    tbody.innerHTML = '';
+
+    if (result && result.success && Array.isArray(result.data)) {
+        result.data.forEach(klub => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><img src="${klub.logo_klub || 'https://via.placeholder.com/30'}" alt="Logo" style="width: 30px; height: 30px; object-fit: cover;"></td>
+                    <td>${klub.nama_klub}</td>
+                    <td>${klub.id_klub}</td>
+                    <td>${klub.nama_manajer || '-'}</td>
+                    <td>${klub.tahun_berdiri || '-'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info text-white" onclick="showKlubDetailAdmin('${klub.id_klub}')">Detail</button>
+                    </td>
+                </tr>
+            `;
+        });
+    } else {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center">Tidak ada data klub ditemukan.</td></tr>`;
+    }
+}
+
+async function showKlubDetailAdmin(idKlub) {
+    const result = await callAppsScript('GET_PROFIL_KLUB');
+    const klub = result.data.find(k => k.id_klub === idKlub);
+
+    if (!klub) {
+        showToast('Klub tidak ditemukan.', false);
         return;
     }
     
-    result.data.forEach(klub => {
-        listDiv.innerHTML += `
-            <div class="col-12 col-md-6 col-lg-4 d-flex">
-                <div class="card w-100 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">${klub.nama_klub}</h5>
-                        <p class="card-text mb-1">ID: ${klub.id_klub}</p>
-                        <p class="card-text mb-1">Manajer: ${klub.nama_manajer || '-'}</p>
-                        <small class="text-muted">Terdaftar: ${new Date(klub.time_stamp).toLocaleDateString()}</small>
-                        
-                        <button class="btn btn-sm btn-outline-info float-end mt-2" onclick="showKlubDetailAdmin('${klub.id_klub}', ${JSON.stringify(klub).replace(/"/g, '&quot;')})">Lihat Detail</button>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-}
-
-function showKlubDetailAdmin(id_klub, klub) {
-    // Perubahan 1: Menggunakan logo_klub
-    const formHtml = `
+    const detailHtml = `
         <div class="col-12 text-center mb-3">
-            <img src="${klub.logo_klub || 'https://via.placeholder.com/100x100?text=Logo'}" class="rounded shadow" style="width: 100px; height: 100px; object-fit: cover;">
+            <img src="${klub.logo_klub || 'https://via.placeholder.com/150?text=No+Logo'}" alt="Logo Klub" style="max-width: 150px; max-height: 150px; border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
         </div>
-        <div class="col-12">
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item"><strong>Nama Klub:</strong> ${klub.nama_klub}</li>
-                <li class="list-group-item"><strong>ID Klub:</strong> ${klub.id_klub}</li>
-                <li class="list-group-item"><strong>Nama Manajer:</strong> ${klub.nama_manajer}</li>
-                <li class="list-group-item"><strong>Nomor Telepon:</strong> ${klub.no_telp_klub || '-'}</li>
-                <li class="list-group-item"><strong>Alamat:</strong> ${klub.alamat_klub || '-'}</li>
-                <li class="list-group-item"><small class="text-muted">Dibuat: ${new Date(klub.time_stamp).toLocaleString()}</small></li>
-            </ul>
+        <div class="col-md-6"><strong>Nama Klub:</strong> ${klub.nama_klub}</div>
+        <div class="col-md-6"><strong>ID Klub:</strong> ${klub.id_klub}</div>
+        <div class="col-md-6"><strong>Nama Manajer:</strong> ${klub.nama_manajer || '-'}</div>
+        <div class="col-md-6"><strong>Tahun Berdiri:</strong> ${klub.tahun_berdiri || '-'}</div>
+        <div class="col-12"><strong>Alamat:</strong> ${klub.alamat_klub || '-'}</div>
+        <div class="col-12 mt-3">
+             <button class="btn btn-sm btn-primary" onclick="renderPage('pemain', '${idKlub}')"><i class="fas fa-running me-1"></i> Lihat Pemain</button>
+             <button class="btn btn-sm btn-secondary" onclick="renderPage('official', '${idKlub}')"><i class="fas fa-users me-1"></i> Lihat Official</button>
         </div>
     `;
 
-    showModalForm(`Detail Klub: ${klub.nama_klub}`, formHtml, (e) => e.preventDefault(), '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>');
+    showModalForm(`Detail Klub: ${klub.nama_klub}`, detailHtml, null, '');
 }
 
 // --- NAVIGASI PEMAIN ---
 async function renderPemain() {
-    contentDiv.innerHTML = `<h2><i class="fas fa-running me-2"></i>Data Pemain</h2>
-        <div class="input-group mb-3">
-            <input type="text" class="form-control" placeholder="Cari Pemain..." id="search-pemain" onkeyup="filterPemainList()">
-            <button class="btn btn-primary" type="button" onclick="filterPemainList()"><i class="fas fa-search"></i></button>
+    const isKlubAdmin = currentUser.type_users.startsWith('ADMIN_KLUB');
+    const isPusatAdmin = currentUser.type_users === 'ADMIN_PUSAT';
+    
+    contentDiv.innerHTML = `
+        <h2><i class="fas fa-running me-2"></i>Data Pemain</h2>
+        <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+            <input type="text" class="form-control w-50" id="search-pemain" onkeyup="filterPemainList()" placeholder="Cari Nama/ID Pemain...">
+            ${isKlubAdmin ? `<button class="btn btn-primary" onclick="openPemainForm()"><i class="fas fa-plus me-2"></i>Tambah Pemain</button>` : ''}
         </div>
-        ${(currentUser.type_users.startsWith('ADMIN_KLUB') || currentUser.type_users === 'ADMIN_PUSAT') ? 
-            `<button class="btn btn-success mb-3" onclick="openPemainForm('NEW')"><i class="fas fa-plus me-1"></i> Tambah Pemain</button>` : ''}
-        <div id="pemain-list" class="row g-3">
-            <p class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Memuat data pemain...</p>
-        </div>`;
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="pemain-list-table">
+                <thead class="bg-dark text-white">
+                    <tr>
+                        <th>Foto</th>
+                        <th>ID Pemain</th>
+                        <th>Nama</th>
+                        <th>Posisi</th>
+                        <th>Tgl Lahir / Umur</th>
+                        ${isPusatAdmin ? '<th>Klub</th>' : ''}
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="${isPusatAdmin ? 7 : 6}" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    `;
     loadPemainList();
 }
 
 async function loadPemainList() {
     const result = await callAppsScript('GET_PEMAIN');
-    const listDiv = document.getElementById('pemain-list');
-    listDiv.innerHTML = '';
-
-    if (!result || !result.success || result.data.length === 0) {
-        listDiv.innerHTML = `<div class="col-12"><div class="alert alert-info text-center">Tidak ada data pemain.</div></div>`;
-        return;
-    }
+    const tbody = document.querySelector('#pemain-list-table tbody');
+    tbody.innerHTML = '';
     
-    const dataPemain = currentUser.type_users.startsWith('ADMIN_KLUB') ? result.data.filter(p => p.id_klub === currentUser.id_klub) : result.data;
+    if (result && result.success && Array.isArray(result.data)) {
+        globalValidPemain = result.data; // Simpan data global untuk filtering
 
-    if (dataPemain.length === 0) {
-        listDiv.innerHTML = `<div class="col-12"><div class="alert alert-info text-center">Tidak ada data pemain terdaftar untuk klub Anda.</div></div>`;
-        return;
+        // Filter berdasarkan admin klub atau tampilkan semua untuk admin pusat
+        const dataToDisplay = currentUser.type_users.startsWith('ADMIN_KLUB')
+            ? result.data.filter(p => p.id_klub === currentUser.id_klub)
+            : result.data;
+
+        dataToDisplay.forEach(pemain => {
+            const age = calculateAge(pemain.tanggal_lahir);
+            const isKlubAdmin = currentUser.type_users.startsWith('ADMIN_KLUB');
+            const isPusatAdmin = currentUser.type_users === 'ADMIN_PUSAT';
+            const isLocked = isKlubAdmin && !isEditable(pemain.time_stamp, currentUser.type_users);
+
+            tbody.innerHTML += `
+                <tr data-nama="${pemain.nama_pemain}" data-id="${pemain.id_pemain}" data-klub="${pemain.nama_klub || ''}">
+                    <td><img src="${pemain.foto_pemain || 'https://via.placeholder.com/30'}" alt="Foto" style="width: 30px; height: 30px; object-fit: cover;"></td>
+                    <td>${pemain.id_pemain}</td>
+                    <td>${pemain.nama_pemain}</td>
+                    <td>${pemain.posisi}</td>
+                    <td>${pemain.tanggal_lahir} (${age} thn)</td>
+                    ${isPusatAdmin ? `<td>${pemain.id_klub}</td>` : ''}
+                    <td>
+                        <button class="btn btn-sm btn-info text-white" onclick="showPemainDetail('${pemain.id_pemain}')"><i class="fas fa-eye"></i></button>
+                        ${isKlubAdmin ? `
+                            <button class="btn btn-sm btn-warning ${isLocked ? 'disabled' : ''}" onclick="openPemainForm('${pemain.id_pemain}')" ${isLocked ? 'disabled title="Melebihi batas 3 hari edit"' : ''}><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-danger ${isLocked ? 'disabled' : ''}" onclick="confirmDeletePemain('${pemain.id_pemain}', '${pemain.nama_pemain}')" ${isLocked ? 'disabled title="Melebihi batas 3 hari edit"' : ''}><i class="fas fa-trash"></i></button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+    } else {
+        const colspan = currentUser.type_users === 'ADMIN_PUSAT' ? 7 : 6;
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center">Tidak ada data pemain ditemukan.</td></tr>`;
     }
-
-    dataPemain.forEach(pemain => {
-        const isOwner = pemain.id_klub === currentUser.id_klub || currentUser.type_users === 'ADMIN_PUSAT';
-        const editable = isEditable(pemain.time_stamp, currentUser.type_users);
-        
-        // Perubahan 2: Menggunakan pas_photo_pemain
-        listDiv.innerHTML += `
-            <div class="col-6 col-md-4 col-lg-3 d-flex" data-nama="${pemain.nama_pemain.toLowerCase()}" data-id="${pemain.id_pemain}">
-                <div class="card w-100 shadow-sm" onclick="showPemainDetail('${pemain.id_pemain}', ${JSON.stringify(pemain).replace(/"/g, '&quot;')}, ${isOwner}, ${editable})" style="cursor:pointer;">
-                    <img src="${pemain.pas_photo_pemain || 'https://via.placeholder.com/150x200?text=Pemain'}" class="card-img-top" style="height: 150px; object-fit: cover;">
-                    <div class="card-body p-2">
-                        <h6 class="card-title mb-0 text-truncate">${pemain.nama_pemain}</h6>
-                        <small class="text-muted d-block">${pemain.posisi} | No. ${pemain.no_punggung}</small>
-                        <small class="text-muted d-block">Usia: ${calculateAge(pemain.tanggal_lahir)} th</small>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
 }
 
-function openPemainForm(id_pemain, data = {}) {
-    const isNew = id_pemain === 'NEW';
-    const posisiOptions = ["Kiper", "Bek Kanan", "Bek Tengah", "Bek Kiri", "Gelandang Kanan", "Gelandang Tengah", "Gelandang Kiri", "Penyerang"];
-    
-    // Perubahan 2: Menggunakan pas_photo_pemain
+function filterPemainList() {
+    const input = document.getElementById('search-pemain');
+    const filter = input.value.toUpperCase();
+    const table = document.getElementById('pemain-list-table');
+    const tr = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < tr.length; i++) {
+        const nama = tr[i].getAttribute('data-nama');
+        const id = tr[i].getAttribute('data-id');
+        if (nama || id) {
+            if (nama.toUpperCase().indexOf(filter) > -1 || id.indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+}
+
+async function getPemainDetail(id) {
+    // Cari detail pemain dari global data
+    return globalValidPemain.find(p => p.id_pemain === id) || {};
+}
+
+async function openPemainForm(id_pemain = null) {
+    let data = { id_pemain: id_pemain, action: 'CREATE' };
+    let isNew = true;
+
+    if (id_pemain) {
+        data = await getPemainDetail(id_pemain);
+        data.action = 'UPDATE';
+        isNew = false;
+    }
+
     const formHtml = `
-        <input type="hidden" name="action" value="${isNew ? 'CREATE' : 'UPDATE'}">
-        <input type="hidden" name="id_pemain" value="${data.id_pemain || ''}">
-        
-        <div class="col-12 text-center">
-            <img id="photo-preview" src="${data.pas_photo_pemain || 'https://via.placeholder.com/150x200?text=Foto'}" class="rounded shadow mb-2" style="width: 150px; height: 200px; object-fit: cover;">
-            <input type="file" class="form-control" id="pas_photo_pemain_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? '' : ''}>
-            <input type="hidden" name="pas_photo_pemain" value="${data.pas_photo_pemain || ''}">
-        </div>
-        
         ${isNew ? `
+            <div class="col-md-12">
+                <label for="id_pemain_input" class="form-label">ID Pemain (16 Digit Angka)</label>
+                <input type="number" class="form-control" id="id_pemain_input" name="id_pemain_input" required>
+            </div>
+            ` : `
             <div class="col-md-6">
-                <label for="id_pemain" class="form-label">ID Pemain (16 Angka Unik)</label>
-                <input type="number" class="form-control" id="id_pemain_input" name="id_pemain_input" value="" required minlength="16" maxlength="16">
-            </div>` : ''}
-        
+                <label class="form-label">ID Pemain</label>
+                <input type="text" class="form-control" value="${data.id_pemain}" readonly>
+                <input type="hidden" name="id_pemain" value="${data.id_pemain}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Terakhir Diubah</label>
+                <input type="text" class="form-control" value="${new Date(data.time_stamp).toLocaleString()}" readonly>
+            </div>
+        `}
         <div class="col-md-6">
-            <label for="nama_pemain" class="form-label">Nama Pemain</label>
+            <label for="nama_pemain" class="form-label">Nama Lengkap</label>
             <input type="text" class="form-control" id="nama_pemain" name="nama_pemain" value="${data.nama_pemain || ''}" required>
         </div>
         <div class="col-md-6">
-            <label for="tanggal_lahir" class="form-label">Tanggal Lahir (yyyy-mm-dd)</label>
-            <input type="date" class="form-control" id="tanggal_lahir" name="tanggal_lahir" value="${data.tanggal_lahir ? new Date(data.tanggal_lahir).toISOString().split('T')[0] : ''}" required>
+            <label for="tanggal_lahir" class="form-label">Tanggal Lahir</label>
+            <input type="date" class="form-control" id="tanggal_lahir" name="tanggal_lahir" value="${data.tanggal_lahir || ''}" required>
         </div>
         <div class="col-md-6">
-            <label for="nama_punggung" class="form-label">Nama Punggung</label>
-            <input type="text" class="form-control" id="nama_punggung" name="nama_punggung" value="${data.nama_punggung || ''}">
-        </div>
-        <div class="col-md-4">
-            <label for="no_punggung" class="form-label">No. Punggung (Nomor)</label>
-            <input type="number" class="form-control" id="no_punggung" name="no_punggung" value="${data.no_punggung || ''}" required>
-        </div>
-        <div class="col-md-4">
             <label for="posisi" class="form-label">Posisi</label>
             <select class="form-select" id="posisi" name="posisi" required>
-                ${posisiOptions.map(p => `<option value="${p}" ${data.posisi === p ? 'selected' : ''}>${p}</option>`).join('')}
+                <option value="">Pilih Posisi</option>
+                ${['GK', 'CB', 'LB', 'RB', 'CM', 'AM', 'LW', 'RW', 'ST'].map(p => `<option value="${p}" ${data.posisi === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>
+        </div>
+        <div class="col-md-6">
+            <label for="no_punggung" class="form-label">No. Punggung</label>
+            <input type="number" class="form-control" id="no_punggung" name="no_punggung" value="${data.no_punggung || ''}" required>
+        </div>
+        <div class="col-md-6">
+            <label for="ktp_pemain_file" class="form-label">Foto KTP/Akte</label>
+            <input type="file" class="form-control" id="ktp_pemain_file" name="ktp_pemain_file" accept="image/*" onchange="previewImage(event, 'ktp-preview')" ${isNew ? 'required' : ''}>
+            <input type="hidden" name="ktp_pemain" value="${data.ktp_pemain || ''}">
+            <small class="text-muted">${data.ktp_pemain ? 'File sudah ada' : ''}</small>
+        </div>
+        <div class="col-md-6">
+            <label for="foto_pemain_file" class="form-label">Foto Pemain (Wajah)</label>
+            <input type="file" class="form-control" id="foto_pemain_file" name="foto_pemain_file" accept="image/*" onchange="previewImage(event, 'foto-preview')" ${isNew ? 'required' : ''}>
+            <input type="hidden" name="foto_pemain" value="${data.foto_pemain || ''}">
+             <small class="text-muted">${data.foto_pemain ? 'File sudah ada' : ''}</small>
+        </div>
+        <div class="col-12 text-center row mt-3">
+            <div class="col-md-6">
+                <p class="mb-1">Preview KTP/Akte</p>
+                <img id="ktp-preview" src="${data.ktp_pemain || 'https://via.placeholder.com/150?text=KTP'}" style="max-width: 150px; max-height: 150px; border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1">Preview Foto Wajah</p>
+                <img id="foto-preview" src="${data.foto_pemain || 'https://via.placeholder.com/150?text=Foto'}" style="max-width: 150px; max-height: 150px; border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
+            </div>
         </div>
     `;
 
-    showModalForm(`${isNew ? 'Tambah' : 'Edit'} Pemain`, formHtml, handlePemainFormSubmit);
+    showModalForm(`${isNew ? 'Tambah' : 'Edit'} Data Pemain`, formHtml, handlePemainFormSubmit);
 }
 
 async function handlePemainFormSubmit(e) {
-    // Perubahan 2: Menggunakan pas_photo_pemain_file
-    await handleGenericFormSubmit(e, 'CRUD_PEMAIN', ['pas_photo_pemain_file'], loadPemainList);
+    await handleGenericFormSubmit(e, 'CRUD_PEMAIN', ['ktp_pemain_file', 'foto_pemain_file'], renderPemain);
 }
 
-function showPemainDetail(id, pemain, isOwner, editable) {
-    // Perubahan 2: Menggunakan pas_photo_pemain
-    const formHtml = `
-        <div class="col-12 text-center">
-            <img src="${pemain.pas_photo_pemain || 'https://via.placeholder.com/150x200?text=Pemain'}" class="rounded shadow mb-3" style="width: 150px; height: 200px; object-fit: cover;">
-            <h4>${pemain.nama_pemain}</h4>
-            <span class="badge bg-primary">${pemain.posisi} - No. ${pemain.no_punggung}</span>
+async function showPemainDetail(id) {
+    const pemain = await getPemainDetail(id);
+    if (!pemain || !pemain.id_pemain) { showToast('Pemain tidak ditemukan.', false); return; }
+
+    const detailHtml = `
+        <div class="col-12 text-center mb-3">
+            <img src="${pemain.foto_pemain || 'https://via.placeholder.com/150?text=No+Foto'}" alt="Foto Pemain" style="max-width: 150px; max-height: 150px; border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
         </div>
-        <div class="col-12">
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item"><strong>ID Pemain:</strong> ${pemain.id_pemain}</li>
-                <li class="list-group-item"><strong>ID Klub:</strong> ${pemain.id_klub}</li>
-                <li class="list-group-item"><strong>Tanggal Lahir:</strong> ${new Date(pemain.tanggal_lahir).toISOString().split('T')[0]}</li>
-                <li class="list-group-item"><strong>Usia:</strong> ${calculateAge(pemain.tanggal_lahir)} tahun</li>
-                <li class="list-group-item"><small class="text-muted">Dibuat: ${new Date(pemain.time_stamp).toLocaleString()}</small></li>
-            </ul>
+        <div class="col-md-6"><strong>ID Pemain:</strong> ${pemain.id_pemain}</div>
+        <div class="col-md-6"><strong>Nama Lengkap:</strong> ${pemain.nama_pemain}</div>
+        <div class="col-md-6"><strong>Tanggal Lahir:</strong> ${pemain.tanggal_lahir} (${calculateAge(pemain.tanggal_lahir)} thn)</div>
+        <div class="col-md-6"><strong>Posisi:</strong> ${pemain.posisi}</div>
+        <div class="col-md-6"><strong>No. Punggung:</strong> ${pemain.no_punggung}</div>
+        <div class="col-md-6"><strong>ID Klub:</strong> ${pemain.id_klub}</div>
+        <div class="col-12 mt-3">
+            <strong>Dokumen KTP/Akte:</strong> 
+            <a href="${pemain.ktp_pemain}" target="_blank" class="btn btn-sm btn-outline-primary ms-2"><i class="fas fa-file-image me-1"></i> Lihat Dokumen</a>
         </div>
     `;
-    
-    let customFooter = '';
-    if (isOwner && editable) {
-        customFooter = `
-            <div>
-                <button class="btn btn-danger me-2" onclick="confirmDeletePemain('${id}', '${pemain.nama_pemain}')" data-bs-dismiss="modal">Hapus</button>
-                <button class="btn btn-success" onclick="openPemainForm('${id}', ${JSON.stringify(pemain).replace(/"/g, '&quot;')})" data-bs-dismiss="modal">Edit</button>
-            </div>
-        `;
-    } else if (isOwner && !editable) {
-        customFooter = `<div class="alert alert-warning text-center m-0">ADMIN_KLUB: Batas waktu edit/hapus (1o hari) telah berakhir.</div>`;
-    } else {
-         customFooter = `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>`;
-    }
 
-    showModalForm('Detail Pemain', formHtml, (e) => e.preventDefault(), customFooter);
+    showModalForm(`Detail Pemain: ${pemain.nama_pemain}`, detailHtml, null, '');
 }
 
-function confirmDeletePemain(id_pemain, nama_pemain) {
-    showConfirmationModal(`Apakah Anda yakin ingin menghapus data pemain ${nama_pemain}?`, async () => {
-        const data = { action: 'DELETE', id_pemain: id_pemain };
+function confirmDeletePemain(id, nama) {
+    showConfirmationModal(`Apakah Anda yakin ingin menghapus pemain **${nama}** (ID: ${id})?`, async () => {
+        const data = { action: 'DELETE', id_pemain: id };
         const result = await callAppsScript('CRUD_PEMAIN', { data: JSON.stringify(data) });
         
         if (result && result.success) {
             showToast(result.message);
-            loadPemainList();
-        } else if (result) {
-            showToast(result.message, false);
+            renderPemain();
         }
-    });
-}
-
-function filterPemainList() {
-    const searchText = document.getElementById('search-pemain').value.toLowerCase();
-    document.querySelectorAll('#pemain-list > div').forEach(card => {
-        const nama = card.dataset.nama;
-        card.style.display = nama.includes(searchText) ? 'flex' : 'none';
     });
 }
 
 // --- NAVIGASI OFFICIAL ---
 async function renderOfficial() {
-     contentDiv.innerHTML = `
-        <h2><i class="fas fa-chalkboard-teacher me-2"></i>Data Official</h2>
-        <div class="input-group mb-3">
-            <input type="text" class="form-control" placeholder="Cari Official..." id="search-official" onkeyup="filterOfficialList()">
-            <button class="btn btn-primary" type="button" onclick="filterOfficialList()"><i class="fas fa-search"></i></button>
+    const isKlubAdmin = currentUser.type_users.startsWith('ADMIN_KLUB');
+    const isPusatAdmin = currentUser.type_users === 'ADMIN_PUSAT';
+    
+    contentDiv.innerHTML = `
+        <h2><i class="fas fa-users me-2"></i>Data Official</h2>
+        <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+            <input type="text" class="form-control w-50" id="search-official" onkeyup="filterOfficialList()" placeholder="Cari Nama/ID Official...">
+            ${isKlubAdmin ? `<button class="btn btn-primary" onclick="openOfficialForm()"><i class="fas fa-plus me-2"></i>Tambah Official</button>` : ''}
         </div>
-        ${(currentUser.type_users.startsWith('ADMIN_KLUB') || currentUser.type_users === 'ADMIN_PUSAT') ?
-            `<button class="btn btn-success mb-3" onclick="openOfficialForm('NEW')"><i class="fas fa-plus me-1"></i> Tambah Official</button>` : ''}
-        <div id="official-list" class="row g-3">
-            <p class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Memuat data official...</p>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="official-list-table">
+                <thead class="bg-dark text-white">
+                    <tr>
+                        <th>Foto</th>
+                        <th>ID Official</th>
+                        <th>Nama</th>
+                        <th>Jabatan</th>
+                        <th>Tgl Lahir / Umur</th>
+                        ${isPusatAdmin ? '<th>Klub</th>' : ''}
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="${isPusatAdmin ? 7 : 6}" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>
+                </tbody>
+            </table>
         </div>
     `;
     loadOfficialList();
@@ -870,159 +1050,201 @@ async function renderOfficial() {
 
 async function loadOfficialList() {
     const result = await callAppsScript('GET_OFFICIAL');
-    const listDiv = document.getElementById('official-list');
-    listDiv.innerHTML = '';
+    const tbody = document.querySelector('#official-list-table tbody');
+    tbody.innerHTML = '';
+    
+    if (result && result.success && Array.isArray(result.data)) {
+        globalValidOfficial = result.data; // Simpan data global untuk filtering
 
-    if (!result || !result.success || result.data.length === 0) {
-        listDiv.innerHTML = `<div class="col-12"><div class="alert alert-info text-center">Tidak ada data official.</div></div>`;
-        return;
+        const dataToDisplay = currentUser.type_users.startsWith('ADMIN_KLUB')
+            ? result.data.filter(o => o.id_klub === currentUser.id_klub)
+            : result.data;
+
+        dataToDisplay.forEach(official => {
+            const age = calculateAge(official.tanggal_lahir);
+            const isKlubAdmin = currentUser.type_users.startsWith('ADMIN_KLUB');
+            const isPusatAdmin = currentUser.type_users === 'ADMIN_PUSAT';
+            const isLocked = isKlubAdmin && !isEditable(official.time_stamp, currentUser.type_users);
+
+            tbody.innerHTML += `
+                <tr data-nama="${official.nama_official}" data-id="${official.id_official}" data-klub="${official.nama_klub || ''}">
+                    <td><img src="${official.foto_official || 'https://via.placeholder.com/30'}" alt="Foto" style="width: 30px; height: 30px; object-fit: cover;"></td>
+                    <td>${official.id_official}</td>
+                    <td>${official.nama_official}</td>
+                    <td>${official.jabatan}</td>
+                    <td>${official.tanggal_lahir} (${age} thn)</td>
+                    ${isPusatAdmin ? `<td>${official.id_klub}</td>` : ''}
+                    <td>
+                        <button class="btn btn-sm btn-info text-white" onclick="showOfficialDetail('${official.id_official}')"><i class="fas fa-eye"></i></button>
+                        ${isKlubAdmin ? `
+                            <button class="btn btn-sm btn-warning ${isLocked ? 'disabled' : ''}" onclick="openOfficialForm('${official.id_official}')" ${isLocked ? 'disabled title="Melebihi batas 3 hari edit"' : ''}><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-danger ${isLocked ? 'disabled' : ''}" onclick="confirmDeleteOfficial('${official.id_official}', '${official.nama_official}')" ${isLocked ? 'disabled title="Melebihi batas 3 hari edit"' : ''}><i class="fas fa-trash"></i></button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+    } else {
+        const colspan = currentUser.type_users === 'ADMIN_PUSAT' ? 7 : 6;
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center">Tidak ada data official ditemukan.</td></tr>`;
     }
-
-    const dataOfficial = currentUser.type_users.startsWith('ADMIN_KLUB') ? result.data.filter(o => o.id_klub === currentUser.id_klub) : result.data;
-
-    if (dataOfficial.length === 0) {
-        listDiv.innerHTML = `<div class="col-12"><div class="alert alert-info text-center">Tidak ada data official terdaftar untuk klub Anda.</div></div>`;
-        return;
-    }
-
-    dataOfficial.forEach(official => {
-        const isOwner = official.id_klub === currentUser.id_klub || currentUser.type_users === 'ADMIN_PUSAT';
-        const editable = isEditable(official.time_stamp, currentUser.type_users);
-        
-        // Perubahan 3: Menggunakan pas_photo_official
-        listDiv.innerHTML += `
-            <div class="col-6 col-md-4 col-lg-3 d-flex" data-nama="${official.nama_official.toLowerCase()}" data-id="${official.id_official}">
-                <div class="card w-100 shadow-sm" onclick="showOfficialDetail('${official.id_official}', ${JSON.stringify(official).replace(/"/g, '&quot;')}, ${isOwner}, ${editable})" style="cursor:pointer;">
-                    <img src="${official.pas_photo_official || 'https://via.placeholder.com/150x200?text=Official'}" class="card-img-top" style="height: 150px; object-fit: cover;">
-                    <div class="card-body p-2">
-                        <h6 class="card-title mb-0 text-truncate">${official.nama_official}</h6>
-                        <small class="text-muted d-block">${official.jabatan}</small>
-                        <small class="text-muted d-block">Usia: ${calculateAge(official.tanggal_lahir)} th</small>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
 }
 
-function openOfficialForm(id_official, data = {}) {
-    const isNew = id_official === 'NEW';
-    const jabatanOptions = ["Manejer", "Asisten Manejer", "Pelatih", "Asisten Pelatih", "Pelatih Kiper", "Pelatih Fisik", "Medis", "Staff Lainnya"];
-    
-    // Perubahan 3: Menggunakan pas_photo_official
+function filterOfficialList() {
+    const input = document.getElementById('search-official');
+    const filter = input.value.toUpperCase();
+    const table = document.getElementById('official-list-table');
+    const tr = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < tr.length; i++) {
+        const nama = tr[i].getAttribute('data-nama');
+        const id = tr[i].getAttribute('data-id');
+        if (nama || id) {
+            if (nama.toUpperCase().indexOf(filter) > -1 || id.indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+}
+
+async function getOfficialDetail(id) {
+    return globalValidOfficial.find(o => o.id_official === id) || {};
+}
+
+async function openOfficialForm(id_official = null) {
+    let data = { id_official: id_official, action: 'CREATE' };
+    let isNew = true;
+
+    if (id_official) {
+        data = await getOfficialDetail(id_official);
+        data.action = 'UPDATE';
+        isNew = false;
+    }
+
     const formHtml = `
-        <input type="hidden" name="action" value="${isNew ? 'CREATE' : 'UPDATE'}">
-        <input type="hidden" name="id_official" value="${data.id_official || ''}">
-        
-        <div class="col-12 text-center">
-            <img id="photo-preview" src="${data.pas_photo_official || 'https://via.placeholder.com/150x200?text=Foto'}" class="rounded shadow mb-2" style="width: 150px; height: 200px; object-fit: cover;">
-            <input type="file" class="form-control" id="pas_photo_official_file" accept="image/*" onchange="previewImage(event, 'photo-preview')" ${isNew ? '' : ''}>
-            <input type="hidden" name="pas_photo_official" value="${data.pas_photo_official || ''}">
-        </div>
-        
         ${isNew ? `
+            <div class="col-md-12">
+                <label for="id_official_input" class="form-label">ID Official (16 Digit Angka)</label>
+                <input type="number" class="form-control" id="id_official_input" name="id_official_input" required>
+            </div>
+            ` : `
             <div class="col-md-6">
-                <label for="id_official" class="form-label">ID Official (16 Angka Unik)</label>
-                <input type="number" class="form-control" id="id_official_input" name="id_official_input" value="" required minlength="16" maxlength="16">
-            </div>` : ''}
-        
+                <label class="form-label">ID Official</label>
+                <input type="text" class="form-control" value="${data.id_official}" readonly>
+                <input type="hidden" name="id_official" value="${data.id_official}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Terakhir Diubah</label>
+                <input type="text" class="form-control" value="${new Date(data.time_stamp).toLocaleString()}" readonly>
+            </div>
+        `}
         <div class="col-md-6">
-            <label for="nama_official" class="form-label">Nama Official</label>
+            <label for="nama_official" class="form-label">Nama Lengkap</label>
             <input type="text" class="form-control" id="nama_official" name="nama_official" value="${data.nama_official || ''}" required>
         </div>
         <div class="col-md-6">
-            <label for="tanggal_lahir" class="form-label">Tanggal Lahir (yyyy-mm-dd)</label>
-            <input type="date" class="form-control" id="tanggal_lahir" name="tanggal_lahir" value="${data.tanggal_lahir ? new Date(data.tanggal_lahir).toISOString().split('T')[0] : ''}" required>
+            <label for="tanggal_lahir" class="form-label">Tanggal Lahir</label>
+            <input type="date" class="form-control" id="tanggal_lahir" name="tanggal_lahir" value="${data.tanggal_lahir || ''}" required>
         </div>
         <div class="col-md-6">
             <label for="jabatan" class="form-label">Jabatan</label>
-            <select class="form-select" id="jabatan" name="jabatan" required>
-                ${jabatanOptions.map(p => `<option value="${p}" ${data.jabatan === p ? 'selected' : ''}>${p}</option>`).join('')}
-            </select>
+            <input type="text" class="form-control" id="jabatan" name="jabatan" value="${data.jabatan || ''}" required>
+        </div>
+        <div class="col-md-6">
+            <label for="lisensi" class="form-label">Lisensi/Sertifikat</label>
+            <input type="text" class="form-control" id="lisensi" name="lisensi" value="${data.lisensi || ''}">
+        </div>
+        <div class="col-md-6">
+            <label for="ktp_official_file" class="form-label">Foto KTP/Akte</label>
+            <input type="file" class="form-control" id="ktp_official_file" name="ktp_official_file" accept="image/*" onchange="previewImage(event, 'ktp-preview')" ${isNew ? 'required' : ''}>
+            <input type="hidden" name="ktp_official" value="${data.ktp_official || ''}">
+            <small class="text-muted">${data.ktp_official ? 'File sudah ada' : ''}</small>
+        </div>
+        <div class="col-md-6">
+            <label for="foto_official_file" class="form-label">Foto Official (Wajah)</label>
+            <input type="file" class="form-control" id="foto_official_file" name="foto_official_file" accept="image/*" onchange="previewImage(event, 'foto-preview')" ${isNew ? 'required' : ''}>
+            <input type="hidden" name="foto_official" value="${data.foto_official || ''}">
+             <small class="text-muted">${data.foto_official ? 'File sudah ada' : ''}</small>
+        </div>
+        <div class="col-12 text-center row mt-3">
+            <div class="col-md-6">
+                <p class="mb-1">Preview KTP/Akte</p>
+                <img id="ktp-preview" src="${data.ktp_official || 'https://via.placeholder.com/150?text=KTP'}" style="max-width: 150px; max-height: 150px; border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1">Preview Foto Wajah</p>
+                <img id="foto-preview" src="${data.foto_official || 'https://via.placeholder.com/150?text=Foto'}" style="max-width: 150px; max-height: 150px; border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
+            </div>
         </div>
     `;
 
-    showModalForm(`${isNew ? 'Tambah' : 'Edit'} Official`, formHtml, handleOfficialFormSubmit);
+    showModalForm(`${isNew ? 'Tambah' : 'Edit'} Data Official`, formHtml, handleOfficialFormSubmit);
 }
 
 async function handleOfficialFormSubmit(e) {
-    // Perubahan 3: Menggunakan pas_photo_official_file
-    await handleGenericFormSubmit(e, 'CRUD_OFFICIAL', ['pas_photo_official_file'], loadOfficialList);
+    await handleGenericFormSubmit(e, 'CRUD_OFFICIAL', ['ktp_official_file', 'foto_official_file'], renderOfficial);
 }
 
-function showOfficialDetail(id, official, isOwner, editable) {
-    // Perubahan 3: Menggunakan pas_photo_official
-    const formHtml = `
-        <div class="col-12 text-center">
-            <img src="${official.pas_photo_official || 'https://via.placeholder.com/150x200?text=Official'}" class="rounded shadow mb-3" style="width: 150px; height: 200px; object-fit: cover;">
-            <h4>${official.nama_official}</h4>
-            <span class="badge bg-primary">${official.jabatan}</span>
+async function showOfficialDetail(id) {
+    const official = await getOfficialDetail(id);
+    if (!official || !official.id_official) { showToast('Official tidak ditemukan.', false); return; }
+
+    const detailHtml = `
+        <div class="col-12 text-center mb-3">
+            <img src="${official.foto_official || 'https://via.placeholder.com/150?text=No+Foto'}" alt="Foto Official" style="max-width: 150px; max-height: 150px; border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
         </div>
-        <div class="col-12">
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item"><strong>ID Official:</strong> ${official.id_official}</li>
-                <li class="list-group-item"><strong>ID Klub:</strong> ${official.id_klub}</li>
-                <li class="list-group-item"><strong>Tanggal Lahir:</strong> ${new Date(official.tanggal_lahir).toISOString().split('T')[0]}</li>
-                <li class="list-group-item"><strong>Usia:</strong> ${calculateAge(official.tanggal_lahir)} tahun</li>
-                <li class="list-group-item"><small class="text-muted">Dibuat: ${new Date(official.time_stamp).toLocaleString()}</small></li>
-            </ul>
+        <div class="col-md-6"><strong>ID Official:</strong> ${official.id_official}</div>
+        <div class="col-md-6"><strong>Nama Lengkap:</strong> ${official.nama_official}</div>
+        <div class="col-md-6"><strong>Tanggal Lahir:</strong> ${official.tanggal_lahir} (${calculateAge(official.tanggal_lahir)} thn)</div>
+        <div class="col-md-6"><strong>Jabatan:</strong> ${official.jabatan}</div>
+        <div class="col-md-6"><strong>Lisensi:</strong> ${official.lisensi || '-'}</div>
+        <div class="col-md-6"><strong>ID Klub:</strong> ${official.id_klub}</div>
+        <div class="col-12 mt-3">
+            <strong>Dokumen KTP/Akte:</strong> 
+            <a href="${official.ktp_official}" target="_blank" class="btn btn-sm btn-outline-primary ms-2"><i class="fas fa-file-image me-1"></i> Lihat Dokumen</a>
         </div>
     `;
 
-    let customFooter = '';
-    if (isOwner && editable) {
-        customFooter = `
-            <div>
-                <button class="btn btn-danger me-2" onclick="confirmDeleteOfficial('${id}', '${official.nama_official}')" data-bs-dismiss="modal">Hapus</button>
-                <button class="btn btn-success" onclick="openOfficialForm('${id}', ${JSON.stringify(official).replace(/"/g, '&quot;')})" data-bs-dismiss="modal">Edit</button>
-            </div>
-        `;
-    } else if (isOwner && !editable) {
-        customFooter = `<div class="alert alert-warning text-center m-0">ADMIN_KLUB: Batas waktu edit/hapus (1o hari) telah berakhir.</div>`;
-    } else {
-         customFooter = `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>`;
-    }
-
-    showModalForm('Detail Official', formHtml, (e) => e.preventDefault(), customFooter);
+    showModalForm(`Detail Official: ${official.nama_official}`, detailHtml, null, '');
 }
 
-function confirmDeleteOfficial(id_official, nama_official) {
-    showConfirmationModal(`Apakah Anda yakin ingin menghapus data official ${nama_official}?`, async () => {
-        const data = { action: 'DELETE', id_official: id_official };
+function confirmDeleteOfficial(id, nama) {
+    showConfirmationModal(`Apakah Anda yakin ingin menghapus official **${nama}** (ID: ${id})?`, async () => {
+        const data = { action: 'DELETE', id_official: id };
         const result = await callAppsScript('CRUD_OFFICIAL', { data: JSON.stringify(data) });
         
         if (result && result.success) {
             showToast(result.message);
-            loadOfficialList();
-        } else if (result) {
-            showToast(result.message, false);
+            renderOfficial();
         }
     });
 }
 
-function filterOfficialList() {
-    const searchText = document.getElementById('search-official').value.toLowerCase();
-    document.querySelectorAll('#official-list > div').forEach(card => {
-        const nama = card.dataset.nama;
-        card.style.display = nama.includes(searchText) ? 'flex' : 'none';
-    });
-}
-
-// --- NAVIGASI KOMPETISI ---
-function getPemainDetail(id_pemain) {
-    return globalValidPemain.find(p => p.id_pemain === id_pemain);
-}
-
-function getOfficialDetail(id_official) {
-    return globalValidOfficial.find(o => o.id_official === id_official);
-}
-
+// --- NAVIGASI KOMPETISI & PRAKOMPETISI ---
 async function renderKompetisi() {
+    const isPusatAdmin = currentUser.type_users === 'ADMIN_PUSAT';
+    
     contentDiv.innerHTML = `
         <h2><i class="fas fa-trophy me-2"></i>Daftar Kompetisi</h2>
-        ${currentUser.type_users === 'ADMIN_PUSAT' ? `<button class="btn btn-primary mb-3" onclick="openKompetisiForm('NEW')"><i class="fas fa-plus me-1"></i> Buat Kompetisi</button>` : ''}
-        <div id="kompetisi-list" class="row g-3">
-            <p class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Memuat daftar kompetisi...</p>
+        ${isPusatAdmin ? `<button class="btn btn-primary my-3" onclick="openKompetisiForm()"><i class="fas fa-plus me-2"></i>Tambah Kompetisi</button>` : ''}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="kompetisi-list-table">
+                <thead class="bg-dark text-white">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nama Kompetisi</th>
+                        <th>Usia Maks.</th>
+                        <th>Periode Pendaftaran</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>
+                </tbody>
+            </table>
         </div>
     `;
     loadKompetisiList();
@@ -1030,640 +1252,617 @@ async function renderKompetisi() {
 
 async function loadKompetisiList() {
     const result = await callAppsScript('GET_LIST_KOMPETISI');
-    const listDiv = document.getElementById('kompetisi-list');
-    listDiv.innerHTML = '';
+    const tbody = document.querySelector('#kompetisi-list-table tbody');
+    tbody.innerHTML = '';
+    const now = new Date().getTime();
+    
+    if (result && result.success && Array.isArray(result.data)) {
+        result.data.forEach(k => {
+            const start = new Date(k.tanggal_awal_pendaftaran).getTime();
+            const end = new Date(k.tanggal_akhir_pendaftaran).getTime();
+            let status = '';
+            
+            if (now < start) {
+                status = `<span class="badge bg-warning">Segera Dibuka</span>`;
+            } else if (now >= start && now <= end) {
+                status = `<span class="badge bg-success">Pendaftaran Buka</span>`;
+            } else {
+                status = `<span class="badge bg-danger">Pendaftaran Tutup</span>`;
+            }
+            
+            const isPusatAdmin = currentUser.type_users === 'ADMIN_PUSAT';
+            const isKlubAdmin = currentUser.type_users.startsWith('ADMIN_KLUB');
 
-    if (!result || !result.success || result.data.length === 0) {
-        listDiv.innerHTML = `<div class="col-12"><div class="alert alert-info text-center">Tidak ada kompetisi yang terdaftar.</div></div>`;
-        return;
+            tbody.innerHTML += `
+                <tr>
+                    <td>${k.id_kompetisi}</td>
+                    <td>${k.nama_kompetisi}</td>
+                    <td>U-${k.umur_maksimal}</td>
+                    <td>${k.tanggal_awal_pendaftaran} s/d ${k.tanggal_akhir_pendaftaran}</td>
+                    <td>${status}</td>
+                    <td>
+                        ${isKlubAdmin && now >= start && now <= end ? 
+                            `<button class="btn btn-sm btn-primary" onclick="renderPrakompetisi('${k.id_kompetisi}')"><i class="fas fa-file-signature me-1"></i> Daftar</button>` : ''}
+                        ${isPusatAdmin ? `
+                            <button class="btn btn-sm btn-warning text-white" onclick="openKompetisiForm('${k.id_kompetisi}')"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="confirmDeleteKompetisi('${k.id_kompetisi}', '${k.nama_kompetisi}')"><i class="fas fa-trash"></i></button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+    } else {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center">Tidak ada data kompetisi ditemukan.</td></tr>`;
     }
-
-    result.data.forEach(kompetisi => {
-        const startDate = new Date(kompetisi.tanggal_awal_pendaftaran);
-        const endDate = new Date(kompetisi.tanggal_akhir_pendaftaran);
-        const now = new Date();
-        const isRegistrationOpen = now >= startDate && now <= endDate;
-        const registrationStatus = now < startDate ? 'Belum Dibuka' : now > endDate ? 'Ditutup' : 'Dibuka';
-        const statusClass = now < startDate ? 'warning' : now > endDate ? 'danger' : 'success';
-
-
-        listDiv.innerHTML += `
-            <div class="col-12">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center">
-                            <img src="${kompetisi.url_logo_liga || 'https://via.placeholder.com/60'}" class="me-3 rounded" style="width: 60px; height: 60px; object-fit: cover;">
-                            <div>
-                                <h5 class="mb-0">${kompetisi.nama_kompetisi} (U-${kompetisi.umur_maksimal})</h5>
-                                <small class="text-muted d-block">Pendaftaran: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</small>
-                                <span class="badge bg-${statusClass}">${registrationStatus}</span>
-                            </div>
-                        </div>
-                        <div class="mt-3 d-grid gap-2 d-md-block">
-                            ${currentUser.type_users === 'ADMIN_PUSAT' ? `
-                                <button class="btn btn-sm btn-outline-info me-2" onclick="openKompetisiForm('${kompetisi.id_kompetisi}', ${JSON.stringify(kompetisi).replace(/"/g, '&quot;')})">Edit Kompetisi</button>
-                            ` : ''}
-                            ${currentUser.type_users.startsWith('ADMIN_KLUB') ? `
-                                ${isRegistrationOpen ? `
-                                    <button class="btn btn-sm btn-primary" onclick="openPrakompetisiSubforms('${kompetisi.id_kompetisi}')">Daftarkan Tim</button>
-                                ` : `
-                                    <button class="btn btn-sm btn-secondary" disabled>Pendaftaran ${registrationStatus}</button>
-                                `}
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
 }
 
-function openKompetisiForm(id_kompetisi, data = {}) {
-    if (currentUser.type_users !== 'ADMIN_PUSAT') {
-        showToast("Akses ditolak.", false);
-        return;
-    }
-    
-    const isNew = id_kompetisi === 'NEW';
-    
-    const formHtml = `
-        <input type="hidden" name="action" value="${isNew ? 'CREATE' : 'UPDATE'}">
-        <input type="hidden" name="id_kompetisi" value="${data.id_kompetisi || (isNew ? 'COMP-' + Math.floor(Math.random() * 10000) : '')}" ${isNew ? 'readonly' : ''}>
+async function openKompetisiForm(id_kompetisi = null) {
+    let data = { id_kompetisi: id_kompetisi, action: 'CREATE' };
+    let isNew = true;
 
-        <div class="col-12">
+    if (id_kompetisi) {
+        const result = await callAppsScript('GET_LIST_KOMPETISI');
+        data = result.data.find(k => k.id_kompetisi === id_kompetisi) || data;
+        data.action = 'UPDATE';
+        isNew = false;
+    }
+
+    const formHtml = `
+        <input type="hidden" name="id_kompetisi" value="${data.id_kompetisi || ''}">
+        <input type="hidden" name="action" value="${data.action}">
+        
+        <div class="col-md-6">
             <label for="nama_kompetisi" class="form-label">Nama Kompetisi</label>
             <input type="text" class="form-control" id="nama_kompetisi" name="nama_kompetisi" value="${data.nama_kompetisi || ''}" required>
         </div>
-
         <div class="col-md-6">
-            <label for="umur_maksimal" class="form-label">Umur Maksimal (U-)</label>
-            <input type="number" class="form-control" id="umur_maksimal" name="umur_maksimal" value="${data.umur_maksimal || ''}" required min="10" max="99">
-        </div>
-        
-        <div class="col-md-6">
-            <label for="url_logo_liga" class="form-label">URL Logo Liga</label>
-            <input type="text" class="form-control" id="url_logo_liga" name="url_logo_liga" value="${data.url_logo_liga || ''}" placeholder="URL Gambar Logo">
-             <input type="file" class="form-control mt-2" id="url_logo_liga_file" accept="image/*" onchange="previewImage(event, 'logo-liga-preview')">
-             <img id="logo-liga-preview" src="${data.url_logo_liga || 'https://via.placeholder.com/60'}" class="mt-2 rounded" style="width: 60px; height: 60px; object-fit: cover;">
-        </div>
-
-        <div class="col-md-6">
-            <label for="tanggal_awal_pendaftaran" class="form-label">Awal Pendaftaran</label>
-            <input type="date" class="form-control" id="tanggal_awal_pendaftaran" name="tanggal_awal_pendaftaran" value="${data.tanggal_awal_pendaftaran ? new Date(data.tanggal_awal_pendaftaran).toISOString().split('T')[0] : ''}" required>
+            <label for="umur_maksimal" class="form-label">Usia Maksimal (U-)</label>
+            <input type="number" class="form-control" id="umur_maksimal" name="umur_maksimal" value="${data.umur_maksimal || ''}" required>
         </div>
         <div class="col-md-6">
-            <label for="tanggal_akhir_pendaftaran" class="form-label">Akhir Pendaftaran</label>
-            <input type="date" class="form-control" id="tanggal_akhir_pendaftaran" name="tanggal_akhir_pendaftaran" value="${data.tanggal_akhir_pendaftaran ? new Date(data.tanggal_akhir_pendaftaran).toISOString().split('T')[0] : ''}" required>
+            <label for="tanggal_awal_pendaftaran" class="form-label">Tgl Awal Pendaftaran</label>
+            <input type="date" class="form-control" id="tanggal_awal_pendaftaran" name="tanggal_awal_pendaftaran" value="${data.tanggal_awal_pendaftaran || ''}" required>
         </div>
-        
-        <div class="col-12">
-            <label for="deskripsi" class="form-label">Deskripsi</label>
-            <textarea class="form-control" id="deskripsi" name="deskripsi" rows="2">${data.deskripsi || ''}</textarea>
+        <div class="col-md-6">
+            <label for="tanggal_akhir_pendaftaran" class="form-label">Tgl Akhir Pendaftaran</label>
+            <input type="date" class="form-control" id="tanggal_akhir_pendaftaran" name="tanggal_akhir_pendaftaran" value="${data.tanggal_akhir_pendaftaran || ''}" required>
         </div>
     `;
 
-    const modalFooter = isNew ? '' : `
-        <button type="button" class="btn btn-danger me-auto" onclick="confirmDeleteKompetisi('${data.id_kompetisi}', '${data.nama_kompetisi}')" data-bs-dismiss="modal">Hapus</button>
-    `;
-
-    showModalForm(`${isNew ? 'Buat' : 'Edit'} Kompetisi`, formHtml, handleKompetisiFormSubmit, modalFooter);
+    showModalForm(`${isNew ? 'Tambah' : 'Edit'} Kompetisi`, formHtml, handleKompetisiFormSubmit);
 }
 
 async function handleKompetisiFormSubmit(e) {
-    // Tambahkan 'url_logo_liga_file' ke fileFields
-    await handleGenericFormSubmit(e, 'CRUD_LIST_KOMPETISI', ['url_logo_liga_file'], loadKompetisiList);
+    await handleGenericFormSubmit(e, 'CRUD_LIST_KOMPETISI', [], renderKompetisi);
 }
 
-function confirmDeleteKompetisi(id_kompetisi, nama_kompetisi) {
-    showConfirmationModal(`Apakah Anda yakin ingin menghapus kompetisi ${nama_kompetisi}?`, async () => {
-        const data = { action: 'DELETE', id_kompetisi: id_kompetisi };
+function confirmDeleteKompetisi(id, nama) {
+    showConfirmationModal(`Apakah Anda yakin ingin menghapus kompetisi **${nama}** (ID: ${id})?`, async () => {
+        const data = { action: 'DELETE', id_kompetisi: id };
         const result = await callAppsScript('CRUD_LIST_KOMPETISI', { data: JSON.stringify(data) });
         
         if (result && result.success) {
             showToast(result.message);
-            loadKompetisiList();
-        } else if (result) {
-            showToast(result.message, false);
+            renderKompetisi();
         }
     });
 }
 
+// --- NAVIGASI PRAKOMPETISI (REGISTRASI) ---
+async function renderPrakompetisi(idKompetisi) {
+    if (!idKompetisi) {
+        const kompetisiResult = await callAppsScript('GET_LIST_KOMPETISI');
+        if (kompetisiResult && kompetisiResult.success && Array.isArray(kompetisiResult.data)) {
+            const now = new Date().getTime();
+            const openKompetisi = kompetisiResult.data.filter(k => 
+                now >= new Date(k.tanggal_awal_pendaftaran).getTime() && 
+                now <= new Date(k.tanggal_akhir_pendaftaran).getTime()
+            );
+            
+            if (openKompetisi.length > 0) {
+                idKompetisi = openKompetisi[0].id_kompetisi;
+            } else {
+                contentDiv.innerHTML = `<div class="alert alert-info mt-3"><i class="fas fa-info-circle me-2"></i> Tidak ada kompetisi yang sedang membuka pendaftaran saat ini.</div>`;
+                return;
+            }
+        } else {
+            contentDiv.innerHTML = `<div class="alert alert-warning mt-3"><i class="fas fa-exclamation-triangle me-2"></i> Gagal memuat daftar kompetisi.</div>`;
+            return;
+        }
+    }
 
-async function openPrakompetisiSubforms(id_kompetisi) {
-    const allKompetisi = (await callAppsScript('GET_LIST_KOMPETISI')).data || [];
-    const kompetisi = allKompetisi.find(k => k.id_kompetisi === id_kompetisi);
-    const kompetisiName = kompetisi ? kompetisi.nama_kompetisi : `Kompetisi ${id_kompetisi}`;
-
+    const kompetisiResult = await callAppsScript('GET_LIST_KOMPETISI');
+    const kompetisi = kompetisiResult.data.find(k => k.id_kompetisi === idKompetisi);
+    
     contentDiv.innerHTML = `
-        <h2><i class="fas fa-list-alt me-2"></i>Pendaftaran Prakompetisi</h2>
-        <h4 class="text-muted">${kompetisiName} (U-${kompetisi.umur_maksimal})</h4>
-        <div class="alert alert-info mt-3">
-            Pemain yang muncul di *select box* telah otomatis difilter sesuai batasan usia U-${kompetisi.umur_maksimal} untuk klub Anda.
-        </div>
+        <h2><i class="fas fa-file-signature me-2"></i>Registrasi: ${kompetisi.nama_kompetisi} (U-${kompetisi.umur_maksimal})</h2>
+        <input type="hidden" id="current-comp-id" value="${idKompetisi}">
         
-        <ul class="nav nav-tabs" id="prakompetisi-tabs" role="tablist">
+        <ul class="nav nav-tabs" id="prakompetisi-tab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="pemain-tab" data-bs-toggle="tab" data-bs-target="#pemain-subform" type="button" role="tab">Pemain (<span id="pemain-count">0</span>/25)</button>
+                <button class="nav-link active" id="pemain-tab" data-bs-toggle="tab" data-bs-target="#pemain-content" type="button" role="tab" aria-controls="pemain-content" aria-selected="true"><i class="fas fa-running me-1"></i> Pemain</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="official-tab" data-bs-toggle="tab" data-bs-target="#official-subform" type="button" role="tab">Official (<span id="official-count">0</span>/10)</button>
+                <button class="nav-link" id="official-tab" data-bs-toggle="tab" data-bs-target="#official-content" type="button" role="tab" aria-controls="official-content" aria-selected="false"><i class="fas fa-users me-1"></i> Official</button>
             </li>
         </ul>
-
-        <div class="tab-content border border-top-0 p-3 bg-white" id="prakompetisi-tab-content">
-            <div class="tab-pane fade show active" id="pemain-subform" role="tabpanel">
-                <input type="hidden" id="idKompetisi" value="${id_kompetisi}">
-                <input type="hidden" id="idKlub" value="${currentUser.id_klub}">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-sm align-middle">
-                        <thead><tr><th>No</th><th>ID Pemain</th><th>Nama Pemain</th><th>Posisi</th><th>Aksi</th></tr></thead>
-                        <tbody id="pemain-prakompetisi-body"></tbody>
-                    </table>
-                </div>
-                <button class="btn btn-sm btn-primary mt-3" onclick="addRowPemainPrakompetisi('${id_kompetisi}')"><i class="fas fa-plus"></i> Tambah Pemain</button>
-                <button class="btn btn-success mt-3 float-end" onclick="savePemainPrakompetisi('${id_kompetisi}')"><i class="fas fa-save"></i> Simpan Daftar Pemain</button>
+        <div class="tab-content" id="prakompetisi-tab-content">
+            <div class="tab-pane fade show active" id="pemain-content" role="tabpanel" aria-labelledby="pemain-tab">
+                <div class="mt-3" id="pemain-form-container">Memuat form pemain...</div>
             </div>
-            
-            <div class="tab-pane fade" id="official-subform" role="tabpanel">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-sm align-middle">
-                        <thead><tr><th>No</th><th>ID Official</th><th>Nama Official</th><th>Jabatan</th><th>Aksi</th></tr></thead>
-                        <tbody id="official-prakompetisi-body"></tbody>
-                    </table>
-                </div>
-                <button class="btn btn-sm btn-primary mt-3" onclick="addRowOfficialPrakompetisi('${id_kompetisi}')"><i class="fas fa-plus"></i> Tambah Official</button>
-                <button class="btn btn-success mt-3 float-end" onclick="saveOfficialPrakompetisi('${id_kompetisi}')"><i class="fas fa-save"></i> Simpan Daftar Official</button>
-            </div>
-        </div>
-        <button class="btn btn-secondary w-100 mt-3" onclick="renderPage('kompetisi')">Kembali ke Daftar Kompetisi</button>
-    `;
-
-    await Promise.all([
-        loadPemainPrakompetisi(id_kompetisi),
-        loadOfficialPrakompetisi(id_kompetisi)
-    ]);
-}
-
-// Subform Players Logic
-async function loadPemainPrakompetisi(id_kompetisi) {
-    const [allValidResult, registeredResult] = await Promise.all([
-        callAppsScript('GET_FILTERED_PEMAIN', { id_kompetisi }),
-        callAppsScript('GET_REGISTERED_PEMAIN', { id_kompetisi })
-    ]);
-
-    const tbody = document.getElementById('pemain-prakompetisi-body');
-    const countSpan = document.getElementById('pemain-count');
-    tbody.innerHTML = '';
-
-    globalValidPemain = allValidResult.success ? allValidResult.data.filter(p => p.id_klub === currentUser.id_klub) : [];
-    const registeredPemain = registeredResult.data || [];
-
-    if (globalValidPemain.length === 0 && registeredPemain.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Tidak ada Pemain yang memenuhi batasan usia di klub Anda.</td></tr>`;
-        countSpan.textContent = '0';
-        return;
-    }
-    
-    // Render data yang sudah terdaftar
-    registeredPemain.forEach((reg, index) => {
-        addRowPemainPrakompetisi(id_kompetisi, reg);
-    });
-
-    // Tambahkan baris kosong untuk entri baru (jika tidak ada data terdaftar)
-    if (tbody.querySelectorAll('tr').length === 0 && globalValidPemain.length > 0) {
-        addRowPemainPrakompetisi(id_kompetisi);
-    }
-    
-    // Update count
-    const currentRowCount = tbody.querySelectorAll('tr').length;
-    countSpan.textContent = currentRowCount;
-}
-
-function addRowPemainPrakompetisi(id_kompetisi, data = {}) {
-    const tbody = document.getElementById('pemain-prakompetisi-body');
-    const countSpan = document.getElementById('pemain-count');
-    const index = tbody.querySelectorAll('tr').length + 1;
-
-    if (index > 25) {
-        showToast("Maksimal 25 Pemain!", false);
-        return;
-    }
-
-    const selectOptions = globalValidPemain.map(p => `
-        <option value="${p.id_pemain}" 
-                data-posisi="${p.posisi}" 
-                data-nopunggung="${p.no_punggung}"
-                data-nama="${p.nama_pemain}"
-                ${p.id_pemain === data.id_pemain ? 'selected' : ''}>
-            ${p.nama_pemain} (No.${p.no_punggung})
-        </option>
-    `).join('');
-
-    const newRow = document.createElement('tr');
-    newRow.dataset.id_kompetisi = id_kompetisi;
-    newRow.innerHTML = `
-        <td>${index}</td>
-        <td><input type="text" class="form-control form-control-sm id-pemain-display" value="${data.id_pemain || ''}" readonly></td>
-        <td>
-            <select class="form-select form-select-sm pemain-select" onchange="updatePemainInfo(this)" required>
-                <option value="">Pilih Pemain</option>
-                ${selectOptions}
-            </select>
-            <input type="hidden" class="pemain-id" name="id_pemain" value="${data.id_pemain || ''}">
-            <input type="hidden" class="pemain-nama" name="nama_pemain" value="${data.nama_pemain || ''}">
-        </td>
-        <td>
-            <input type="text" class="form-control form-control-sm pemain-posisi" value="${data.posisi || ''}" readonly>
-            <input type="hidden" class="pemain-nopunggung" name="no_punggung" value="${data.no_punggung || ''}">
-        </td>
-        <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this, 'pemain-count')"><i class="fas fa-trash"></i></button></td>
-    `;
-    
-    tbody.appendChild(newRow);
-    updateRowNumbers(tbody);
-    countSpan.textContent = tbody.querySelectorAll('tr').length;
-    
-    // Panggil update info jika data sudah ada (untuk row yang dimuat dari database)
-    if(data.id_pemain) {
-        const select = newRow.querySelector('.pemain-select');
-        // Karena kita tidak bisa memicu event change saat load, kita panggil fungsi update-nya
-        updatePemainInfo(select);
-    }
-}
-
-function updatePemainInfo(selectElement) {
-    const selectedOption = selectElement.options[selectElement.selectedIndex];
-    const row = selectElement.closest('tr');
-    
-    const id = selectedOption.value;
-    const nama = selectedOption.dataset.nama || '';
-    const posisi = selectedOption.dataset.posisi || '';
-    const noPunggung = selectedOption.dataset.nopunggung || '';
-
-    row.querySelector('.id-pemain-display').value = id;
-    row.querySelector('.pemain-id').value = id;
-    row.querySelector('.pemain-nama').value = nama;
-    row.querySelector('.pemain-posisi').value = posisi;
-    row.querySelector('.pemain-nopunggung').value = noPunggung;
-}
-
-async function savePemainPrakompetisi(id_kompetisi) {
-    const tbody = document.getElementById('pemain-prakompetisi-body');
-    const rows = tbody.querySelectorAll('tr');
-    const idKlub = document.getElementById('idKlub').value;
-    const entries = [];
-    let isValid = true;
-    let selectedIds = new Set();
-
-    rows.forEach(row => {
-        // Ambil nilai dari input hidden (yang diisi oleh updatePemainInfo)
-        const id = row.querySelector('.pemain-id').value;
-        const nama = row.querySelector('.pemain-nama').value;
-        const posisi = row.querySelector('.pemain-posisi').value;
-        const no_punggung = row.querySelector('.pemain-nopunggung').value;
-
-        // Hanya proses baris yang memiliki ID dan Nama (telah dipilih dari select box)
-        if (id && nama) { 
-            if (selectedIds.has(id)) {
-                showToast(`Duplikasi Pemain ID: ${id}. Harap hapus duplikasi.`, false);
-                isValid = false;
-                return;
-            }
-            
-            entries.push({ 
-                id_kompetisi, 
-                id_klub: idKlub, 
-                id_pemain: id, 
-                nama_pemain: nama, 
-                posisi, 
-                no_punggung // Data No. Punggung ikut terkirim
-            });
-            selectedIds.add(id);
-        }
-    });
-
-    if (!isValid) return;
-
-    if (entries.length > 25) {
-        showToast("Maksimal 25 Pemain!", false);
-        return;
-    }
-    
-    if (entries.length === 0 && rows.length > 0) {
-        showToast("Pilih minimal 1 pemain untuk disimpan, atau hapus semua baris untuk mengosongkan daftar.", false);
-        return;
-    }
-    
-    // Panggil Apps Script
-    const result = await callAppsScript('SAVE_PEMAIN_PRAKOMPETISI', { 
-        id_kompetisi, 
-        entries: JSON.stringify(entries) 
-    });
-
-    if (result.success) {
-        showToast(result.message);
-        loadPemainPrakompetisi(id_kompetisi);
-    } else {
-        showToast(result.message, false);
-    }
-}
-
-// Subform Officials Logic
-async function loadOfficialPrakompetisi(id_kompetisi) {
-    const [allOfficialResult, registeredResult] = await Promise.all([
-        callAppsScript('GET_OFFICIAL'),
-        callAppsScript('GET_REGISTERED_OFFICIAL', { id_kompetisi })
-    ]);
-
-    const tbody = document.getElementById('official-prakompetisi-body');
-    const countSpan = document.getElementById('official-count');
-    tbody.innerHTML = '';
-
-    globalValidOfficial = allOfficialResult.data.filter(o => o.id_klub === currentUser.id_klub);
-    const registeredOfficial = registeredResult.data || [];
-
-    if (globalValidOfficial.length === 0 && registeredOfficial.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Tidak ada Official terdaftar di klub Anda.</td></tr>`;
-        countSpan.textContent = '0';
-        return;
-    }
-    
-    registeredOfficial.forEach((reg, index) => {
-        addRowOfficialPrakompetisi(id_kompetisi, reg);
-    });
-
-    if (tbody.querySelectorAll('tr').length === 0 && globalValidOfficial.length > 0) {
-        addRowOfficialPrakompetisi(id_kompetisi);
-    }
-    
-    const currentRowCount = tbody.querySelectorAll('tr').length;
-    countSpan.textContent = currentRowCount;
-}
-
-function addRowOfficialPrakompetisi(id_kompetisi, data = {}) {
-    const tbody = document.getElementById('official-prakompetisi-body');
-    const countSpan = document.getElementById('official-count');
-    const index = tbody.querySelectorAll('tr').length + 1;
-
-    if (index > 10) {
-        showToast("Maksimal 10 Official!", false);
-        return;
-    }
-
-    const selectOptions = globalValidOfficial.map(o => `
-        <option value="${o.id_official}" 
-                data-jabatan="${o.jabatan}" 
-                data-nama="${o.nama_official}"
-                ${o.id_official === data.id_official ? 'selected' : ''}>
-            ${o.nama_official}
-        </option>
-    `).join('');
-
-    const newRow = document.createElement('tr');
-    newRow.dataset.id_kompetisi = id_kompetisi;
-    newRow.innerHTML = `
-        <td>${index}</td>
-        <td><input type="text" class="form-control form-control-sm id-official-display" value="${data.id_official || ''}" readonly></td>
-        <td>
-            <select class="form-select form-select-sm official-select" onchange="updateOfficialInfo(this)" required>
-                <option value="">Pilih Official</option>
-                ${selectOptions}
-            </select>
-            <input type="hidden" class="official-id" name="id_official" value="${data.id_official || ''}">
-            <input type="hidden" class="official-nama" name="nama_official" value="${data.nama_official || ''}">
-        </td>
-        <td>
-            <input type="text" class="form-control form-control-sm official-jabatan" value="${data.jabatan || ''}" readonly>
-        </td>
-        <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this, 'official-count')"><i class="fas fa-trash"></i></button></td>
-    `;
-    
-    tbody.appendChild(newRow);
-    updateRowNumbers(tbody);
-    countSpan.textContent = tbody.querySelectorAll('tr').length;
-
-    if(data.id_official) {
-        const select = newRow.querySelector('.official-select');
-        updateOfficialInfo(select);
-    }
-}
-
-function updateOfficialInfo(selectElement) {
-    const selectedOption = selectElement.options[selectElement.selectedIndex];
-    const row = selectElement.closest('tr');
-    
-    const id = selectedOption.value;
-    const nama = selectedOption.dataset.nama || '';
-    const jabatan = selectedOption.dataset.jabatan || '';
-
-    row.querySelector('.id-official-display').value = id;
-    row.querySelector('.official-id').value = id;
-    row.querySelector('.official-nama').value = nama;
-    row.querySelector('.official-jabatan').value = jabatan;
-}
-
-async function saveOfficialPrakompetisi(id_kompetisi) {
-    const tbody = document.getElementById('official-prakompetisi-body');
-    const rows = tbody.querySelectorAll('tr');
-    const idKlub = document.getElementById('idKlub').value;
-    const entries = [];
-    let isValid = true;
-    let selectedIds = new Set();
-
-    rows.forEach(row => {
-        const id = row.querySelector('.official-id').value;
-        const nama = row.querySelector('.official-nama').value;
-        const jabatan = row.querySelector('.official-jabatan').value;
-
-        if (id && nama) {
-            if (selectedIds.has(id)) {
-                showToast(`Duplikasi Official ID: ${id}. Harap hapus duplikasi.`, false);
-                isValid = false;
-                return;
-            }
-            entries.push({ 
-                id_kompetisi, 
-                id_klub: idKlub, 
-                id_official: id, 
-                nama_official: nama, 
-                jabatan 
-            });
-            selectedIds.add(id);
-        }
-    });
-
-    if (!isValid) return;
-
-    if (entries.length > 10) {
-        showToast("Maksimal 10 Official!", false);
-        return;
-    }
-
-    if (entries.length === 0 && rows.length > 0) {
-        showToast("Pilih minimal 1 official untuk disimpan, atau hapus semua baris untuk mengosongkan daftar.", false);
-        return;
-    }
-
-    const result = await callAppsScript('SAVE_OFFICIAL_PRAKOMPETISI', { 
-        id_kompetisi, 
-        entries: JSON.stringify(entries) 
-    });
-
-    if (result.success) {
-        showToast(result.message);
-        loadOfficialPrakompetisi(id_kompetisi);
-    } else {
-        showToast(result.message, false);
-    }
-}
-
-function removeRow(button, countId) {
-    const tbody = button.closest('tbody');
-    button.closest('tr').remove();
-    updateRowNumbers(tbody);
-    
-    const currentCount = tbody.querySelectorAll('tr').length;
-    document.getElementById(countId).textContent = currentCount;
-
-    // Jika semua baris dihapus, tambahkan satu baris kosong lagi (kecuali jika listnya memang kosong total)
-    if (currentCount === 0) {
-        const idKompetisi = document.getElementById('idKompetisi').value;
-        if (countId === 'pemain-count' && globalValidPemain.length > 0) {
-            addRowPemainPrakompetisi(idKompetisi);
-        } else if (countId === 'official-count' && globalValidOfficial.length > 0) {
-            addRowOfficialPrakompetisi(idKompetisi);
-        }
-    }
-}
-
-function updateRowNumbers(tbody) {
-    tbody.querySelectorAll('tr').forEach((row, index) => {
-        row.querySelector('td:first-child').textContent = index + 1;
-    });
-}
-
-
-// --- NAVIGASI SETTING ---
-async function renderSetting() {
-    if (currentUser.type_users !== 'ADMIN_PUSAT') {
-         renderHome();
-         return;
-    }
-    contentDiv.innerHTML = `
-        <h2><i class="fas fa-cog me-2"></i>Pengaturan Aplikasi</h2>
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-info text-white">Pengaturan Banner Slide</div>
-            <div class="card-body" id="setting-banner-content">
-                <p class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Memuat data banner...</p>
-            </div>
-        </div>
-        <div class="card shadow-sm">
-            <div class="card-header bg-info text-white">Pengaturan Pengguna (Userlist)</div>
-            <div class="card-body" id="setting-userlist-content">
-                <button class="btn btn-success mb-3" onclick="openUserlistForm('NEW')"><i class="fas fa-user-plus me-1"></i> Tambah Pengguna</button>
-                <div id="userlist-table">
-                    <p class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Memuat data pengguna...</p>
-                </div>
+            <div class="tab-pane fade" id="official-content" role="tabpanel" aria-labelledby="official-tab">
+                <div class="mt-3" id="official-form-container">Memuat form official...</div>
             </div>
         </div>
     `;
-    loadBannerSetting();
-    loadUserlistSetting();
+
+    loadPemainPrakompetisi(idKompetisi);
+    document.getElementById('official-tab').addEventListener('shown.bs.tab', () => {
+        loadOfficialPrakompetisi(idKompetisi);
+    });
 }
 
-async function loadBannerSetting() {
-    const result = await callAppsScript('GET_BANNERS');
-    const content = document.getElementById('setting-banner-content');
-    const data = result && result.success ? result.data : {};
+// === Prakompetisi Pemain ===
+async function loadPemainPrakompetisi(idKompetisi) {
+    const [filterResult, registerResult] = await Promise.all([
+        callAppsScript('GET_FILTERED_PEMAIN', { id_kompetisi: idKompetisi }),
+        callAppsScript('GET_REGISTERED_PEMAIN', { id_kompetisi: idKompetisi })
+    ]);
+    
+    const availablePemain = filterResult.success ? filterResult.data.filter(p => p.id_klub === currentUser.id_klub) : [];
+    const registeredPemain = registerResult.success ? registerResult.data : [];
 
-    content.innerHTML = `
-        <form id="banner-form" class="row g-3">
-            ${[1, 2, 3].map(i => `
-                <div class="col-12 col-md-4">
-                    <label class="form-label">Banner ${i} URL</label>
-                    <img id="banner${i}-preview" src="${data[`url_banner${i}`] || 'https://via.placeholder.com/200x100?text=Banner'}" class="img-fluid rounded mb-2" style="height: 100px; object-fit: cover; width: 100%;">
-                    <input type="file" class="form-control" id="url_banner${i}_file" accept="image/*" onchange="previewImage(event, 'banner${i}-preview')">
-                    <input type="hidden" name="url_banner${i}" value="${data[`url_banner${i}`] || ''}">
-                </div>
-            `).join('')}
-            <div class="col-12 d-grid">
-                <button type="submit" class="btn btn-primary">Simpan Pengaturan Banner</button>
+    // Jika sudah terdaftar, gunakan data terdaftar. Jika tidak, sediakan 25 baris kosong.
+    let listPemain = registeredPemain.length > 0 ? registeredPemain : Array(25).fill({}); 
+    // Jika data terdaftar kurang dari 25, tambahkan baris kosong
+    if (registeredPemain.length < 25) {
+        listPemain = listPemain.concat(Array(25 - registeredPemain.length).fill({}));
+    }
+
+    const formContainer = document.getElementById('pemain-form-container');
+    formContainer.innerHTML = `
+        <p class="alert alert-info">Pemain yang muncul di dropdown adalah pemain yang terdaftar di klub Anda dan **memenuhi batas usia (U-${(await callAppsScript('GET_LIST_KOMPETISI')).data.find(k => k.id_kompetisi === idKompetisi).umur_maksimal})**.</p>
+        <form id="prakompetisi-pemain-form" class="mb-4">
+            <input type="hidden" name="id_kompetisi" value="${idKompetisi}">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="pemain-registration-table">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th width="5%">No.</th>
+                            <th width="30%">Nama Pemain (Wajib)</th>
+                            <th width="15%">No. Punggung (Wajib)</th>
+                            <th width="15%">Posisi (Wajib)</th>
+                            <th width="20%">ID Pemain (Otomatis)</th>
+                            <th width="15%">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pemain-rows"></tbody>
+                </table>
+            </div>
+            <p class="text-muted">Total terdaftar: <span id="pemain-count">0</span> dari 25</p>
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-secondary me-2" onclick="addRowPemainPrakompetisi('${idKompetisi}')"><i class="fas fa-plus"></i> Tambah Baris</button>
+                <button type="submit" class="btn btn-success"><i class="fas fa-save me-2"></i>Simpan Registrasi Pemain</button>
             </div>
         </form>
     `;
 
+    const tbody = document.getElementById('pemain-rows');
+    tbody.innerHTML = '';
+    
+    listPemain.forEach((pemain, index) => {
+        addRowPemainPrakompetisi(idKompetisi, index + 1, pemain, availablePemain);
+    });
+
+    document.getElementById('prakompetisi-pemain-form').addEventListener('submit', savePemainPrakompetisi);
+}
+
+function addRowPemainPrakompetisi(idKompetisi, index, data = {}, availablePemain = globalValidPemain.filter(p => p.id_klub === currentUser.id_klub)) {
+    const tbody = document.getElementById('pemain-rows');
+    const newIndex = index || tbody.children.length + 1;
+    const playerId = data.id_pemain || '';
+    
+    // Pastikan data pemain yang sudah terdaftar ada di list available (jika ID-nya valid)
+    const currentPemain = playerId ? availablePemain.find(p => p.id_pemain === playerId) || {} : {};
+
+    const row = document.createElement('tr');
+    row.id = `pemain-row-${newIndex}`;
+    row.innerHTML = `
+        <td>${newIndex}.</td>
+        <td>
+            <select class="form-select form-select-sm player-select" name="pemain_id_${newIndex}" 
+                    onchange="updatePemainInfo(this, ${newIndex}, 'pemain')">
+                <option value="">-- Pilih Pemain --</option>
+                ${availablePemain.map(p => `
+                    <option value="${p.id_pemain}" 
+                            data-posisi="${p.posisi || ''}" 
+                            data-nopunggung="${p.no_punggung || ''}" 
+                            data-nama="${p.nama_pemain}"
+                            ${playerId === p.id_pemain ? 'selected' : ''}>
+                        ${p.nama_pemain} (No. ${p.no_punggung || '-'})
+                    </option>
+                `).join('')}
+                ${playerId && !availablePemain.find(p => p.id_pemain === playerId) ? 
+                    `<option value="${playerId}" selected class="text-danger">${data.nama_pemain || 'ID Invalid'}</option>` : ''}
+            </select>
+            <input type="hidden" class="player-nama-input" name="nama_pemain_${newIndex}" value="${data.nama_pemain || ''}">
+        </td>
+        <td><input type="number" class="form-control form-control-sm player-nopunggung" name="no_punggung_${newIndex}" value="${data.no_punggung || ''}" required></td>
+        <td><input type="text" class="form-control form-control-sm player-posisi" name="posisi_${newIndex}" value="${data.posisi || ''}" required></td>
+        <td><input type="text" class="form-control form-control-sm player-id-display" value="${playerId}" readonly></td>
+        <td>
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeRow(${newIndex}, 'pemain')"><i class="fas fa-times"></i></button>
+        </td>
+    `;
+    tbody.appendChild(row);
+    document.getElementById('pemain-count').textContent = tbody.children.length;
+
+    // Pastikan info terisi jika ini adalah data lama
+    if(playerId && !currentPemain.nama_pemain) {
+        // Jika pemain terdaftar tapi tidak di list filtered (mungkin batas usia berubah), biarkan datanya
+        row.querySelector('.player-select').classList.add('is-invalid');
+    }
+}
+
+function updatePemainInfo(selectElement, index, type) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const row = document.getElementById(`${type}-row-${index}`);
+
+    if (selectedOption.value) {
+        row.querySelector(`.${type}-id-display`).value = selectedOption.value;
+        row.querySelector(`.${type}-nama-input`).value = selectedOption.getAttribute('data-nama');
+        row.querySelector(`.${type}-nopunggung`).value = selectedOption.getAttribute('data-nopunggung') || '';
+        row.querySelector(`.${type}-posisi`).value = selectedOption.getAttribute('data-posisi') || '';
+        selectElement.classList.remove('is-invalid');
+    } else {
+        // Clear fields if option is "-- Pilih Pemain --"
+        row.querySelector(`.${type}-id-display`).value = '';
+        row.querySelector(`.${type}-nama-input`).value = '';
+        row.querySelector(`.${type}-nopunggung`).value = '';
+        row.querySelector(`.${type}-posisi`).value = '';
+    }
+}
+
+function removeRow(index, type) {
+    const row = document.getElementById(`${type}-row-${index}`);
+    if (row) {
+        row.remove();
+        // Update count
+        document.getElementById(`${type}-count`).textContent = document.getElementById(`${type}-rows`).children.length;
+    }
+}
+
+async function savePemainPrakompetisi(e) {
+    e.preventDefault();
+    const form = e.target;
+    const idKompetisi = form.querySelector('input[name="id_kompetisi"]').value;
+    const rows = document.getElementById('pemain-rows').children;
+    const entries = [];
+    
+    showLoading();
+
+    for (const row of rows) {
+        const select = row.querySelector('.player-select');
+        const id = select.value;
+        
+        if (id) {
+            const index = row.id.split('-').pop();
+            const nama = row.querySelector(`input[name="nama_pemain_${index}"]`).value;
+            const nopunggung = row.querySelector(`input[name="no_punggung_${index}"]`).value;
+            const posisi = row.querySelector(`input[name="posisi_${index}"]`).value;
+
+            if (!nama || !nopunggung || !posisi) {
+                hideLoading();
+                showToast(`Data pemain di baris ${index} tidak lengkap.`, false);
+                return;
+            }
+            
+            entries.push({
+                id_pemain: id,
+                nama_pemain: nama,
+                no_punggung: nopunggung,
+                posisi: posisi
+            });
+        }
+    }
+
+    if (entries.length > 25) {
+         hideLoading();
+         showToast("Maksimal 25 pemain yang dapat didaftarkan.", false);
+         return;
+    }
+
+    const result = await callAppsScript('SAVE_PEMAIN_PRAKOMPETISI', { 
+        id_kompetisi: idKompetisi, 
+        entries: JSON.stringify(entries) 
+    });
+    
+    hideLoading();
+    if (result && result.success) {
+        showToast(result.message);
+        loadPemainPrakompetisi(idKompetisi); // Reload data
+    } else if (result) {
+        showToast(result.message, false);
+    }
+}
+
+// === Prakompetisi Official ===
+async function loadOfficialPrakompetisi(idKompetisi) {
+    const registerResult = await callAppsScript('GET_REGISTERED_OFFICIAL', { id_kompetisi: idKompetisi });
+    
+    const availableOfficial = globalValidOfficial.filter(o => o.id_klub === currentUser.id_klub);
+    const registeredOfficial = registerResult.success ? registerResult.data : [];
+
+    let listOfficial = registeredOfficial.length > 0 ? registeredOfficial : Array(10).fill({}); 
+    if (registeredOfficial.length < 10) {
+        listOfficial = listOfficial.concat(Array(10 - registeredOfficial.length).fill({}));
+    }
+
+    const formContainer = document.getElementById('official-form-container');
+    formContainer.innerHTML = `
+        <p class="alert alert-info">Pilih Official yang terdaftar di klub Anda untuk registrasi kompetisi. Maksimal 10 Official.</p>
+        <form id="prakompetisi-official-form" class="mb-4">
+            <input type="hidden" name="id_kompetisi" value="${idKompetisi}">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="official-registration-table">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th width="5%">No.</th>
+                            <th width="40%">Nama Official (Wajib)</th>
+                            <th width="30%">Jabatan (Otomatis)</th>
+                            <th width="25%">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="official-rows"></tbody>
+                </table>
+            </div>
+            <p class="text-muted">Total terdaftar: <span id="official-count">0</span> dari 10</p>
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-secondary me-2" onclick="addRowOfficialPrakompetisi('${idKompetisi}')"><i class="fas fa-plus"></i> Tambah Baris</button>
+                <button type="submit" class="btn btn-success"><i class="fas fa-save me-2"></i>Simpan Registrasi Official</button>
+            </div>
+        </form>
+    `;
+
+    const tbody = document.getElementById('official-rows');
+    tbody.innerHTML = '';
+    
+    listOfficial.forEach((official, index) => {
+        addRowOfficialPrakompetisi(idKompetisi, index + 1, official, availableOfficial);
+    });
+
+    document.getElementById('prakompetisi-official-form').addEventListener('submit', saveOfficialPrakompetisi);
+}
+
+function addRowOfficialPrakompetisi(idKompetisi, index, data = {}, availableOfficial = globalValidOfficial.filter(o => o.id_klub === currentUser.id_klub)) {
+    const tbody = document.getElementById('official-rows');
+    const newIndex = index || tbody.children.length + 1;
+    const officialId = data.id_official || '';
+    
+    const row = document.createElement('tr');
+    row.id = `official-row-${newIndex}`;
+    row.innerHTML = `
+        <td>${newIndex}.</td>
+        <td>
+            <select class="form-select form-select-sm official-select" name="official_id_${newIndex}" 
+                    onchange="updateOfficialInfo(this, ${newIndex}, 'official')">
+                <option value="">-- Pilih Official --</option>
+                ${availableOfficial.map(o => `
+                    <option value="${o.id_official}" 
+                            data-jabatan="${o.jabatan || ''}" 
+                            data-nama="${o.nama_official}"
+                            ${officialId === o.id_official ? 'selected' : ''}>
+                        ${o.nama_official} (${o.jabatan || '-'})
+                    </option>
+                `).join('')}
+                ${officialId && !availableOfficial.find(o => o.id_official === officialId) ? 
+                    `<option value="${officialId}" selected class="text-danger">${data.nama_official || 'ID Invalid'}</option>` : ''}
+            </select>
+            <input type="hidden" class="official-nama-input" name="nama_official_${newIndex}" value="${data.nama_official || ''}">
+        </td>
+        <td><input type="text" class="form-control form-control-sm official-jabatan" name="jabatan_${newIndex}" value="${data.jabatan || ''}" readonly required></td>
+        <td>
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeRow(${newIndex}, 'official')"><i class="fas fa-times"></i></button>
+        </td>
+    `;
+    tbody.appendChild(row);
+    document.getElementById('official-count').textContent = tbody.children.length;
+}
+
+async function saveOfficialPrakompetisi(e) {
+    e.preventDefault();
+    const form = e.target;
+    const idKompetisi = form.querySelector('input[name="id_kompetisi"]').value;
+    const rows = document.getElementById('official-rows').children;
+    const entries = [];
+    
+    showLoading();
+
+    for (const row of rows) {
+        const select = row.querySelector('.official-select');
+        const id = select.value;
+        
+        if (id) {
+            const index = row.id.split('-').pop();
+            const nama = row.querySelector(`input[name="nama_official_${index}"]`).value;
+            const jabatan = row.querySelector(`input[name="jabatan_${index}"]`).value;
+
+            if (!nama || !jabatan) {
+                hideLoading();
+                showToast(`Data official di baris ${index} tidak lengkap.`, false);
+                return;
+            }
+            
+            entries.push({
+                id_official: id,
+                nama_official: nama,
+                jabatan: jabatan
+            });
+        }
+    }
+    
+    if (entries.length > 10) {
+         hideLoading();
+         showToast("Maksimal 10 official yang dapat didaftarkan.", false);
+         return;
+    }
+
+    const result = await callAppsScript('SAVE_OFFICIAL_PRAKOMPETISI', { 
+        id_kompetisi: idKompetisi, 
+        entries: JSON.stringify(entries) 
+    });
+    
+    hideLoading();
+    if (result && result.success) {
+        showToast(result.message);
+        loadOfficialPrakompetisi(idKompetisi); // Reload data
+    } else if (result) {
+        showToast(result.message, false);
+    }
+}
+
+// --- NAVIGASI PENGATURAN (ADMIN PUSAT) ---
+function renderSetting() {
+    if (currentUser.type_users !== 'ADMIN_PUSAT') {
+        contentDiv.innerHTML = `<div class="alert alert-danger mt-3">Akses Ditolak. Halaman ini hanya untuk Admin Pusat.</div>`;
+        return;
+    }
+    
+    contentDiv.innerHTML = `
+        <h2><i class="fas fa-cog me-2"></i>Pengaturan Sistem</h2>
+        <ul class="nav nav-tabs mt-3" id="setting-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="banner-tab" data-bs-toggle="tab" data-bs-target="#banner-content" type="button" role="tab" aria-controls="banner-content" aria-selected="true">Banner Info</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="userlist-tab" data-bs-toggle="tab" data-bs-target="#userlist-content" type="button" role="tab" aria-controls="userlist-content" aria-selected="false">Manajemen Pengguna</button>
+            </li>
+        </ul>
+        <div class="tab-content card p-3" id="setting-tab-content">
+            <div class="tab-pane fade show active" id="banner-content" role="tabpanel" aria-labelledby="banner-tab">
+                <div id="banner-setting-container">Memuat...</div>
+            </div>
+            <div class="tab-pane fade" id="userlist-content" role="tabpanel" aria-labelledby="userlist-tab">
+                <div id="userlist-setting-container">Memuat...</div>
+            </div>
+        </div>
+    `;
+    
+    loadBannerSetting();
+    document.getElementById('userlist-tab').addEventListener('shown.bs.tab', loadUserlistSetting);
+}
+
+// === Banner Setting ===
+async function loadBannerSetting() {
+    const container = document.getElementById('banner-setting-container');
+    const result = await callAppsScript('GET_BANNERS');
+    const data = result && result.success ? result.data : {};
+    
+    container.innerHTML = `
+        <form id="banner-form" class="row g-3">
+            <p class="text-muted">Atur 3 URL gambar banner yang akan tampil di halaman utama (Dashboard).</p>
+            ${[1, 2, 3].map(i => `
+                <div class="col-md-4">
+                    <label for="url_banner${i}" class="form-label">URL Banner ${i}</label>
+                    <input type="text" class="form-control" id="url_banner${i}" name="url_banner${i}" value="${data[`url_banner${i}`] || ''}">
+                    <a href="${data[`url_banner${i}`] || '#'}" target="_blank" class="text-sm d-block mt-1">Lihat</a>
+                </div>
+            `).join('')}
+            <div class="col-12 mt-4">
+                <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save me-2"></i>Simpan Pengaturan Banner</button>
+            </div>
+        </form>
+    `;
+    
     document.getElementById('banner-form').addEventListener('submit', handleBannerFormSubmit);
 }
 
 async function handleBannerFormSubmit(e) {
-    const fileFields = ['url_banner1_file', 'url_banner2_file', 'url_banner3_file'];
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
     
-    await handleGenericFormSubmit(e, 'CRUD_BANNER', fileFields, () => {
-        loadBannerSetting();
-        loadBanners();
-    });
+    const result = await callAppsScript('CRUD_BANNER', { data: JSON.stringify(data) });
+    
+    if (result && result.success) {
+        showToast(result.message);
+        loadBannerSetting(); // Reload form
+        loadBanners(); // Reload banner di Home
+    } else if (result) {
+        showToast(result.message, false);
+    }
 }
 
+// === Userlist Setting ===
 async function loadUserlistSetting() {
-    const result = await callAppsScript('GET_USERLIST');
-    const tableDiv = document.getElementById('userlist-table');
-    tableDiv.innerHTML = '';
-
-    if (!result || !result.success || result.data.length === 0) {
-        tableDiv.innerHTML = `<div class="alert alert-info text-center">Tidak ada data pengguna.</div>`;
-        return;
-    }
-
-    let tableHtml = `
+    const container = document.getElementById('userlist-setting-container');
+    container.innerHTML = `<button class="btn btn-primary mb-3" onclick="openUserlistForm()"><i class="fas fa-user-plus me-2"></i>Tambah Pengguna</button>`;
+    
+    const tableHtml = `
         <div class="table-responsive">
-            <table class="table table-striped table-sm align-middle">
-                <thead>
+            <table class="table table-striped table-hover" id="userlist-table">
+                <thead class="bg-dark text-white">
                     <tr>
                         <th>Username</th>
-                        <th>Tipe</th>
+                        <th>Tipe Pengguna</th>
                         <th>ID Klub</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
-    `;
-
-    result.data.forEach(user => {
-        tableHtml += `
-            <tr>
-                <td>${user.username}</td>
-                <td><span class="badge bg-secondary">${user.type_users}</span></td>
-                <td>${user.id_klub || '-'}</td>
-                <td>
-                    <button class="btn btn-warning btn-sm me-1" onclick="openUserlistForm('${user.username}', ${JSON.stringify(user).replace(/"/g, '&quot;')})"><i class="fas fa-edit"></i></button>
-                    ${user.username !== currentUser.username ? `
-                        <button class="btn btn-danger btn-sm" onclick="confirmDeleteUserlist('${user.username}')"><i class="fas fa-trash"></i></button>
-                    ` : ''}
-                </td>
-            </tr>
-        `;
-    });
-
-    tableHtml += `
+                    <tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
     `;
-    tableDiv.innerHTML = tableHtml;
+    container.innerHTML += tableHtml;
+
+    const result = await callAppsScript('GET_USERLIST');
+    const tbody = document.querySelector('#userlist-table tbody');
+    tbody.innerHTML = '';
+    
+    if (result && result.success && Array.isArray(result.data)) {
+        result.data.forEach(user => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${user.username}</td>
+                    <td>${user.type_users}</td>
+                    <td>${user.id_klub || '-'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning text-white" onclick="openUserlistForm('${user.username}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger" onclick="confirmDeleteUserlist('${user.username}')"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+    } else {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center">Tidak ada data pengguna ditemukan.</td></tr>`;
+    }
 }
 
-function openUserlistForm(username, data = {}) {
-    const isNew = username === 'NEW';
-    const typeOptions = ["ADMIN_PUSAT", "ADMIN_KLUB"];
+async function openUserlistForm(username = null) {
+    let data = { username: username, action: 'CREATE' };
+    let isNew = true;
+
+    if (username) {
+        const result = await callAppsScript('GET_USERLIST');
+        data = result.data.find(u => u.username === username) || data;
+        data.action = 'UPDATE';
+        isNew = false;
+    }
+
+    const typeOptions = ['ADMIN_PUSAT', 'ADMIN_KLUB'];
 
     const formHtml = `
-        <input type="hidden" name="action" value="${isNew ? 'CREATE' : 'UPDATE'}">
+        <input type="hidden" name="action" value="${data.action}">
+        
         <div class="col-md-6">
             <label for="username" class="form-label">Username</label>
             <input type="text" class="form-control" id="username" name="username" value="${data.username || ''}" ${isNew ? 'required' : 'readonly'}>
         </div>
         <div class="col-md-6">
-            <label for="password" class="form-label">${isNew ? 'Password (Wajib)' : 'Password (Kosongkan jika tidak diubah)'}</label>
+            <label for="password" class="form-label">Password ${isNew ? '(Wajib)' : '(Kosongkan jika tidak diubah)'}</label>
             <input type="password" class="form-control" id="password" name="password" ${isNew ? 'required' : ''}>
         </div>
         <div class="col-md-6">
@@ -1686,19 +1885,16 @@ async function handleUserlistFormSubmit(e) {
 }
 
 function confirmDeleteUserlist(username) {
-    showConfirmationModal(`Apakah Anda yakin ingin menghapus pengguna ${username}?`, async () => {
+    showConfirmationModal(`Apakah Anda yakin ingin menghapus pengguna **${username}**?`, async () => {
         const data = { action: 'DELETE', username: username };
         const result = await callAppsScript('CRUD_USERLIST', { data: JSON.stringify(data) });
         
         if (result && result.success) {
             showToast(result.message);
             loadUserlistSetting();
-        } else if (result) {
-            showToast(result.message, false);
         }
     });
 }
 
-
-// --- INIT ---
+// --- INISIALISASI ---
 document.addEventListener('DOMContentLoaded', renderApp);
